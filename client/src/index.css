@@ -1,10 +1,192 @@
+/* stylelint-disable at-rule-no-unknown */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Marcellus&display=swap');
+
+@font-face {
+  font-family: 'SpellcasterHP';
+  src: url('/harry-p-font/HarryP-MVZ6w.ttf') format('truetype');
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* simple base styles for the whole app */
-body {
-  @apply bg-slate-900 text-slate-100;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+@layer base {
+  :root {
+    font-family: 'Manrope', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      sans-serif;
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased;
+    min-height: 100vh;
+  }
 }
 
+@layer utilities {
+  .font-spellcaster {
+    font-family: 'SpellcasterHP', 'Cinzel Decorative', 'IM Fell English SC', serif;
+    letter-spacing: 0.14em;
+  }
+
+  .font-incantation {
+    font-family: 'Marcellus', 'Times New Roman', serif;
+    letter-spacing: 0.08em;
+  }
+
+  .font-parchment {
+    font-family: 'Palatino Linotype', 'URW Chancery L', 'Segoe Script', cursive;
+    letter-spacing: 0.2em;
+  }
+
+  .bg-magic {
+    background: radial-gradient(circle at 15% 20%, rgba(124, 58, 237, 0.55), transparent 45%),
+      radial-gradient(circle at 80% 15%, rgba(6, 182, 212, 0.45), transparent 40%),
+      radial-gradient(circle at 25% 80%, rgba(244, 114, 182, 0.35), transparent 55%),
+      linear-gradient(140deg, #040013 0%, #0b022b 40%, #2a0a4a 70%, #050014 100%);
+    background-size: 220% 220%;
+    animation: aurora 38s ease-in-out infinite;
+  }
+
+  .card-glow {
+    box-shadow: 0 25px 60px rgba(8, 0, 22, 0.75), inset 0 0 25px rgba(255, 255, 255, 0.03);
+  }
+
+  .magic-star {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 70%);
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6));
+    animation: twinkle 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .shooting-star {
+    position: absolute;
+    width: 2px;
+    height: 140px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(168, 85, 247, 0.9) 70%);
+    filter: drop-shadow(0 0 18px rgba(168, 85, 247, 0.5));
+    animation: shooting 12s linear infinite;
+    transform-origin: top;
+    pointer-events: none;
+  }
+
+  .floating-spark {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+    box-shadow: 0 0 18px rgba(248, 250, 252, 0.7);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    animation: sparkDrift 10s ease-in-out infinite;
+  }
+
+  .floating-spark::after {
+    content: '';
+    position: absolute;
+    inset: -30%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(14, 116, 144, 0.4), transparent 70%);
+  }
+
+  .wand-ember {
+    position: absolute;
+    width: 6px;
+    height: 60px;
+    background: linear-gradient(180deg, rgba(251, 191, 36, 0), rgba(251, 191, 36, 0.9));
+    border-radius: 9999px;
+    filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.6));
+    transform-origin: top;
+    animation: emberPulse 6s ease-in-out infinite;
+  }
+}
+
+@keyframes aurora {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes drift {
+  0% {
+    transform: translate3d(0px, 0px, 0);
+  }
+  50% {
+    transform: translate3d(25px, -35px, 0);
+  }
+  100% {
+    transform: translate3d(-30px, 25px, 0);
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shooting {
+  0% {
+    opacity: 0;
+    transform: rotate(35deg) translateY(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    transform: rotate(35deg) translateY(200px);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sparkDrift {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+  30% {
+    opacity: 1;
+    transform: translate3d(25px, -20px, 0) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(-20px, 25px, 0) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+}
+
+@keyframes emberPulse {
+  0%,
+  100% {
+    opacity: 0;
+    transform: rotate(-8deg) scaleY(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(8deg) scaleY(1);
+  }
+}
+/* stylelint-enable at-rule-no-unknown */
