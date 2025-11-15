@@ -9,6 +9,9 @@ dotenv.config();
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const ALLOWED_ORIGINS = CLIENT_ORIGIN.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const app = express();
 
@@ -16,7 +19,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: CLIENT_ORIGIN,
+    origin: ALLOWED_ORIGINS,
     credentials: true,
   })
 );
@@ -31,8 +34,9 @@ const httpServer = http.createServer(app);
 // plug socket.io into the same server
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: CLIENT_ORIGIN,
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 

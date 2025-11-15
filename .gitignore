@@ -9,6 +9,7 @@ client/dist/
 
 # env files
 server/.env
+server/.env.example
 
 # misc
 .DS_Store
