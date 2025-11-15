@@ -36,6 +36,9 @@ app.get('/health', (_req, res) => {
 
 app.post('/tts', async (req, res) => {
   const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  const readingSpeed =
+    typeof req.body?.readingSpeed === 'number' ? Number(req.body.readingSpeed) : undefined;
+  const styleValue = readingSpeed ? Math.max(0, Math.min(1, readingSpeed)) : 0.75;
   const voiceId =
     (typeof req.body?.voiceId === 'string' && req.body.voiceId.trim()) || ELEVENLABS_VOICE_ID;
 
@@ -62,8 +65,10 @@ app.post('/tts', async (req, res) => {
         text,
         model_id: 'eleven_multilingual_v2',
         voice_settings: {
-          stability: 0.25,
-          similarity_boost: 0.55,
+          stability: 0.35,
+          similarity_boost: 0.8,
+          style: styleValue,
+          use_speaker_boost: true,
         },
       }),
     });

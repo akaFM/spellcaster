@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSocketConnection } from './hooks/useSocketConnection';
 import { useLobby } from './hooks/useLobby';
-import { GameSettingsControls } from './components/GameSettingsControls';
 import { RoundRecapCard } from './components/RoundRecapCard';
 import { WizardBeam } from './components/WizardBeam';
 import { CountdownDisplay } from './components/CountdownDisplay';
 import { GameSummaryCard } from './components/GameSummaryCard';
+import { HostSettingsModal } from './components/HostSettingsModal';
 import { SERVER_URL } from './lib/config';
+import type { GameSettings } from '../../shared/types/socket';
 
 const castingPrompts = [
   'Focus on the cadence of the wizarding voice.',
@@ -15,8 +16,14 @@ const castingPrompts = [
   'Let the syllables settle before you strike.',
 ];
 
+const DEFAULT_SETTINGS: GameSettings = {
+  difficulty: 'medium',
+  rounds: 5,
+  readingSpeed: 1,
+};
+
 const App: React.FC = () => {
-  const { status, lastPong, sendPing } = useSocketConnection();
+  const { status } = useSocketConnection();
   const {
     lobby,
     duel,
@@ -33,7 +40,6 @@ const App: React.FC = () => {
     setReady,
     startDuel,
     submitSpell,
-    updateSettings,
     clearError,
     resetSummary,
   } = useLobby();
@@ -48,8 +54,12 @@ const App: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
-  const pendingAudioRef = useRef<{ roundNumber: number; url: string } | null>(null);
+  const pendingAudioRef = useRef<{ roundNumber: number; url: string; readingSpeed: number } | null>(
+    null
+  );
   const audioFetchControllerRef = useRef<AbortController | null>(null);
+  const [hostSettingsModalOpen, setHostSettingsModalOpen] = useState(false);
+  const [hostSettings, setHostSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     if (!countdown) {
@@ -113,12 +123,15 @@ const App: React.FC = () => {
   );
 
   const preloadSpellAudio = useCallback(
-    async (roundNumber: number, text: string) => {
+    async (roundNumber: number, text: string, readingSpeed: number) => {
       if (!text || !roundNumber) {
         return;
       }
 
-      if (pendingAudioRef.current?.roundNumber === roundNumber) {
+      if (
+        pendingAudioRef.current?.roundNumber === roundNumber &&
+        pendingAudioRef.current.readingSpeed === readingSpeed
+      ) {
         return;
       }
 
@@ -133,6 +146,7 @@ const App: React.FC = () => {
           },
           body: JSON.stringify({
             text,
+            readingSpeed,
           }),
           signal: audioFetchControllerRef.current.signal,
         });
@@ -145,7 +159,7 @@ const App: React.FC = () => {
         const blob = await response.blob();
         cleanupPendingAudio();
         const url = URL.createObjectURL(blob);
-        pendingAudioRef.current = { roundNumber, url };
+        pendingAudioRef.current = { roundNumber, url, readingSpeed };
       } catch (error) {
         if (audioFetchControllerRef.current?.signal.aborted) {
           return;
@@ -160,7 +174,7 @@ const App: React.FC = () => {
     if (!countdown?.spellText) {
       return;
     }
-    preloadSpellAudio(countdown.roundNumber, countdown.spellText);
+    preloadSpellAudio(countdown.roundNumber, countdown.spellText, countdown.readingSpeed);
   }, [countdown, preloadSpellAudio]);
 
   useEffect(() => {
@@ -187,15 +201,23 @@ const App: React.FC = () => {
     let cancelled = false;
 
     const ensureAudio = async () => {
-      if (!pendingAudioRef.current || pendingAudioRef.current.roundNumber !== prompt.roundNumber) {
-        await preloadSpellAudio(prompt.roundNumber, prompt.spellText);
+      if (
+        !pendingAudioRef.current ||
+        pendingAudioRef.current.roundNumber !== prompt.roundNumber ||
+        pendingAudioRef.current.readingSpeed !== prompt.readingSpeed
+      ) {
+        await preloadSpellAudio(prompt.roundNumber, prompt.spellText, prompt.readingSpeed);
       }
       if (cancelled) {
         return;
       }
 
       const cached = pendingAudioRef.current;
-      if (!cached || cached.roundNumber !== prompt.roundNumber) {
+      if (
+        !cached ||
+        cached.roundNumber !== prompt.roundNumber ||
+        cached.readingSpeed !== prompt.readingSpeed
+      ) {
         console.warn('spell audio not ready in time, skipping playback');
         return;
       }
@@ -221,6 +243,12 @@ const App: React.FC = () => {
     [cleanupAudio, cleanupPendingAudio]
   );
 
+  useEffect(() => {
+    if (hostSettingsModalOpen && lobby) {
+      setHostSettingsModalOpen(false);
+    }
+  }, [hostSettingsModalOpen, lobby]);
+
   const everyoneReady = lobby?.players.every((player) => player.ready) ?? false;
   const canStartDuel = Boolean(lobby && lobby.phase === 'lobby' && localPlayer?.isHost && everyoneReady);
   const readyLabel = localPlayer?.ready ? 'unready' : 'ready up';
@@ -233,9 +261,22 @@ const App: React.FC = () => {
   const totalRounds = duel?.totalRounds ?? lobby?.settings?.rounds ?? 5;
   const beamOffset = duel?.beamOffset ?? 0;
 
-  const handleCreate = () => createLobby(playerName);
+  const handleCreate = () => createLobby(playerName, hostSettings);
   const handleJoin = () => joinLobby(roomCodeInput, playerName);
   const handleReadyToggle = () => setReady(!localPlayer?.ready);
+  const handleOpenHostSettings = () => {
+    setHostSettings({ ...DEFAULT_SETTINGS });
+    setHostSettingsModalOpen(true);
+  };
+  const handleHostSettingsChange = (partial: Partial<GameSettings>) => {
+    setHostSettings((prev) => ({
+      ...prev,
+      ...partial,
+    }));
+  };
+  const handleConfirmHostSettings = () => {
+    handleCreate();
+  };
 
   const handleGuessChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentGuess(event.target.value.toUpperCase());
@@ -326,7 +367,7 @@ const App: React.FC = () => {
       <div className="flex gap-3 flex-col sm:flex-row">
         <button
           className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={handleCreate}
+          onClick={handleOpenHostSettings}
           disabled={status !== 'connected'}
         >
           create duel
@@ -392,16 +433,19 @@ const App: React.FC = () => {
       </div>
 
       {lobby?.settings && (
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-400">
-            <span>game settings</span>
-            {!localPlayer?.isHost && <span>host controlled</span>}
+        <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-2">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">configured spell rules</p>
+          <div className="text-sm text-slate-300 space-y-1">
+            <p>
+              <span className="text-slate-500">difficulty:</span> {lobby.settings.difficulty}
+            </p>
+            <p>
+              <span className="text-slate-500">rounds:</span> {lobby.settings.rounds}
+            </p>
+            <p>
+              <span className="text-slate-500">reading speed:</span> {lobby.settings.readingSpeed.toFixed(2)}x
+            </p>
           </div>
-          <GameSettingsControls
-            settings={lobby.settings}
-            disabled={!localPlayer?.isHost}
-            onChange={updateSettings}
-          />
         </div>
       )}
 
@@ -524,39 +568,6 @@ const App: React.FC = () => {
         {inLobby && renderLobby()}
         {inDuel && renderDuel()}
 
-        <div className="pt-4 border-t border-slate-700 space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-300">socket status</span>
-            <span
-              className={`font-mono ${
-                status === 'connected'
-                  ? 'text-emerald-400'
-                  : status === 'connecting'
-                  ? 'text-amber-400'
-                  : 'text-rose-400'
-              }`}
-            >
-              {status}
-            </span>
-          </div>
-          <button
-            className="w-full py-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={sendPing}
-            disabled={status !== 'connected'}
-          >
-            ping server
-          </button>
-          <div className="text-xs text-slate-400 text-center">
-            {lastPong ? (
-              <span>
-                last pong at: <span className="font-mono">{lastPong}</span>
-              </span>
-            ) : (
-              <span>no pong yet – handy for debugging if things go quiet.</span>
-            )}
-          </div>
-        </div>
-
         {summary && (
           <GameSummaryCard
             summary={summary}
@@ -566,6 +577,14 @@ const App: React.FC = () => {
           />
         )}
       </div>
+      <HostSettingsModal
+        open={hostSettingsModalOpen && !lobby}
+        settings={hostSettings}
+        onChange={handleHostSettingsChange}
+        onCancel={() => setHostSettingsModalOpen(false)}
+        onConfirm={handleConfirmHostSettings}
+        confirmDisabled={status !== 'connected'}
+      />
     </div>
   );
 };

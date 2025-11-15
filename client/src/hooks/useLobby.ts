@@ -22,13 +22,12 @@ interface UseLobbyResult {
   scores: Record<string, number>;
   error: string | null;
   localPlayer: Player | null;
-  createLobby: (playerName: string) => void;
+  createLobby: (playerName: string, settings?: GameSettings) => void;
   joinLobby: (roomCode: string, playerName: string) => void;
   leaveLobby: () => void;
   setReady: (ready: boolean) => void;
   startDuel: () => void;
   submitSpell: (guess: string, durationMs: number, promptId: string) => void;
-  updateSettings: (settings: Partial<GameSettings>) => void;
   clearError: () => void;
   resetSummary: () => void;
 }
@@ -181,14 +180,14 @@ export function useLobby(): UseLobbyResult {
 
   const socketRef = () => getSocket();
 
-  const createLobby = (playerName: string) => {
+  const createLobby = (playerName: string, settings?: GameSettings) => {
     const name = playerName.trim();
     if (!name) {
       setError('please enter your name first');
       return;
     }
     setError(null);
-    socketRef().emit('lobby:create', { playerName: name });
+    socketRef().emit('lobby:create', { playerName: name, settings });
   };
 
   const joinLobby = (roomCode: string, playerName: string) => {
@@ -239,16 +238,6 @@ export function useLobby(): UseLobbyResult {
     });
   };
 
-  const updateSettings = (settings: Partial<GameSettings>) => {
-    if (!lobby) {
-      return;
-    }
-    socketRef().emit('lobby:updateSettings', {
-      roomCode: lobby.roomCode,
-      settings,
-    });
-  };
-
   const clearError = () => setError(null);
   const resetSummary = () => setSummary(null);
 
@@ -268,7 +257,6 @@ export function useLobby(): UseLobbyResult {
     setReady,
     startDuel,
     submitSpell,
-    updateSettings,
     clearError,
     resetSummary,
   };

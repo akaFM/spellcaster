@@ -45,7 +45,7 @@ export function registerSocketHandlers(
         });
       });
 
-      socket.on('lobby:create', ({ playerName }) => {
+      socket.on('lobby:create', ({ playerName, settings }) => {
         const cleanName = sanitizeName(playerName);
         if (!cleanName) {
           return sendError(socket, 'please enter a name before creating a duel');
@@ -54,10 +54,12 @@ export function registerSocketHandlers(
         leaveCurrentLobby(socket, io, duelManager);
 
         const roomCode = generateRoomCode();
+        const lobbySettings = sanitizeSettings(settings ?? {}, DEFAULT_SETTINGS);
+
         const lobby: LobbyState = {
           roomCode,
           phase: 'lobby',
-          settings: { ...DEFAULT_SETTINGS },
+          settings: lobbySettings,
           players: [
             {
               id: socket.id,

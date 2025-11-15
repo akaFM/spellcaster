@@ -97,7 +97,7 @@ export interface ServerErrorPayload {
 export interface ClientToServerEvents {
   // simple ping event for testing round-trip
   ping: () => void;
-  'lobby:create': (payload: { playerName: string }) => void;
+  'lobby:create': (payload: { playerName: string; settings?: Partial<GameSettings> }) => void;
   'lobby:join': (payload: { roomCode: string; playerName: string }) => void;
   'lobby:leave': () => void;
   'lobby:setReady': (payload: { roomCode: string; ready: boolean }) => void;
