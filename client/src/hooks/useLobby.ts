@@ -7,6 +7,7 @@ import type {
   GameSummary,
   LobbyState,
   Player,
+  PlayerSubmissionPayload,
   RoundRecapPayload,
   ServerErrorPayload,
   SpellPromptPayload,
@@ -20,6 +21,7 @@ interface UseLobbyResult {
   roundRecap: RoundRecapPayload | null;
   summary: GameSummary | null;
   scores: Record<string, number>;
+  roundSubmissions: { roundNumber: number; playerIds: Record<string, boolean> } | null;
   error: string | null;
   localPlayer: Player | null;
   createLobby: (playerName: string, settings?: GameSettings) => void;
@@ -42,6 +44,10 @@ export function useLobby(): UseLobbyResult {
   const [roundRecap, setRoundRecap] = useState<RoundRecapPayload | null>(null);
   const [summary, setSummary] = useState<GameSummary | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
+  const [roundSubmissions, setRoundSubmissions] = useState<{
+    roundNumber: number;
+    playerIds: Record<string, boolean>;
+  } | null>(null);
 
   useEffect(() => {
     const socket = getSocket();
@@ -71,6 +77,10 @@ export function useLobby(): UseLobbyResult {
       setCountdown(payload);
       setPrompt(null);
       setRoundRecap(null);
+      setRoundSubmissions({
+        roundNumber: payload.roundNumber,
+        playerIds: {},
+      });
       setDuel((prev) =>
         prev
           ? {
@@ -85,6 +95,14 @@ export function useLobby(): UseLobbyResult {
       setPrompt(payload);
       setCountdown(null);
       setRoundRecap(null);
+      setRoundSubmissions((prev) =>
+        prev && prev.roundNumber === payload.roundNumber
+          ? prev
+          : {
+              roundNumber: payload.roundNumber,
+              playerIds: {},
+            }
+      );
       setDuel((prev) =>
         prev
           ? {
@@ -105,6 +123,13 @@ export function useLobby(): UseLobbyResult {
           next[result.playerId] = result.cumulativeScore;
         });
         return next;
+      });
+      setRoundSubmissions({
+        roundNumber: payload.roundNumber,
+        playerIds: payload.playerResults.reduce<Record<string, boolean>>((acc, result) => {
+          acc[result.playerId] = true;
+          return acc;
+        }, {}),
       });
       setDuel((prev) =>
         prev
@@ -129,6 +154,7 @@ export function useLobby(): UseLobbyResult {
           return acc;
         }, {})
       );
+      setRoundSubmissions(null);
     };
 
     const handleError = (payload: ServerErrorPayload) => {
@@ -148,6 +174,27 @@ export function useLobby(): UseLobbyResult {
     socket.on('duel:countdown', handleCountdown);
     socket.on('duel:prompt', handlePrompt);
     socket.on('duel:roundRecap', handleRoundRecap);
+    const handlePlayerSubmitted = (payload: PlayerSubmissionPayload) => {
+      setRoundSubmissions((prev) => {
+        if (!prev || prev.roundNumber !== payload.roundNumber) {
+          return {
+            roundNumber: payload.roundNumber,
+            playerIds: { [payload.playerId]: true },
+          };
+        }
+        if (prev.playerIds[payload.playerId]) {
+          return prev;
+        }
+        return {
+          roundNumber: prev.roundNumber,
+          playerIds: {
+            ...prev.playerIds,
+            [payload.playerId]: true,
+          },
+        };
+      });
+    };
+    socket.on('duel:playerSubmitted', handlePlayerSubmitted);
     socket.on('duel:completed', handleCompleted);
     socket.on('error', handleError);
     socket.on('connect', handleConnect);
@@ -163,6 +210,7 @@ export function useLobby(): UseLobbyResult {
       socket.off('duel:countdown', handleCountdown);
       socket.off('duel:prompt', handlePrompt);
       socket.off('duel:roundRecap', handleRoundRecap);
+      socket.off('duel:playerSubmitted', handlePlayerSubmitted);
       socket.off('duel:completed', handleCompleted);
       socket.off('error', handleError);
       socket.off('connect', handleConnect);
@@ -210,6 +258,7 @@ export function useLobby(): UseLobbyResult {
     setRoundRecap(null);
     setSummary(null);
     setScores({});
+    setRoundSubmissions(null);
   };
 
   const setReady = (ready: boolean) => {
@@ -249,6 +298,7 @@ export function useLobby(): UseLobbyResult {
     roundRecap,
     summary,
     scores,
+    roundSubmissions,
     error,
     localPlayer,
     createLobby,

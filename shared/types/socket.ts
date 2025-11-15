@@ -89,6 +89,12 @@ export interface GameSummary {
   players: PlayerSummary[];
 }
 
+export interface PlayerSubmissionPayload {
+  roomCode: string;
+  roundNumber: number;
+  playerId: string;
+}
+
 export interface ServerErrorPayload {
   message: string;
 }
@@ -120,6 +126,7 @@ export interface ServerToClientEvents {
   'duel:countdown': (payload: CountdownPayload) => void;
   'duel:prompt': (payload: SpellPromptPayload) => void;
   'duel:roundRecap': (payload: RoundRecapPayload) => void;
+  'duel:playerSubmitted': (payload: PlayerSubmissionPayload) => void;
   'duel:completed': (payload: GameSummary) => void;
   error: (payload: ServerErrorPayload) => void;
 }

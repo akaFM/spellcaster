@@ -136,6 +136,11 @@ export class DuelManager {
       durationMs,
       submittedAt: new Date().toISOString(),
     };
+    this.deps.io.to(roomCode).emit('duel:playerSubmitted', {
+      roomCode,
+      roundNumber: round.roundNumber,
+      playerId,
+    });
 
     const submissionsReceived = Object.keys(round.submissions).length;
     if (submissionsReceived === duel.players.length) {
