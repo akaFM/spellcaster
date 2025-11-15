@@ -1,12 +1,12 @@
-## spellcaster – phase 2
+## spellcaster – phase 3
 
-we’re slowly building the spellcaster duel for natalie and avo. phase 1 set up the barebones server + client. phase 2 keeps that intact and layers on typed socket events, a shared types folder, and a simple ping/pong ui so we know realtime wiring works.
+phase 1 gave us the scaffolding, phase 2 proved sockets. phase 3 is the first real gameplay skeleton: typed lobbies, ready-up flow, and an in-duel placeholder so natalie and avo can run the whole lifecycle end-to-end.
 
 ### what’s in place now
 
-- node + express + socket.io + typescript server with shared event types
-- react + vite + typescript + tailwind client with connection status + ping button
-- shared `shared/types/socket.ts` to keep socket events in sync between frontend and backend
+- node + express + socket.io + typescript server with an in-memory lobby store
+- react + vite + typescript + tailwind client that can create/join lobbies, ready up, and trigger the duel state
+- shared `shared/types/socket.ts` defines lobby, duel, and socket event contracts so server + client stay in sync
 
 ## requirements
 
@@ -30,7 +30,7 @@ this starts the express + socket.io server on `http://localhost:4000` by default
 quick checks:
 
 - `GET http://localhost:4000/health` returns `{ "status": "ok" }`
-- watch the terminal for lines like `received ping from <socket-id>` when the client sends a ping
+- watch the terminal for lobby logs like `created lobby ABCD` or `player natalie joined lobby ABCD`
 
 ### client
 
@@ -42,16 +42,20 @@ npm run dev
 
 this starts the vite dev server (usually on `http://localhost:5173`).
 
-### phase 2 smoke test
+### phase 3 smoke test
 
 1. run `npm run dev` inside `server`.
 2. run `npm run dev` inside `client`.
-3. open the client url in a browser – the card should show the socket status.
-4. once it says `connected`, click **ping server**.
-5. server console should log the ping, and the client should display `last pong at: <timestamp>`.
-6. refresh the page to see the status flip through `connecting -> connected` again.
+3. open the client url in two browser windows/tabs.
+4. window A: enter a name (e.g., avo) and click **create duel**. note the room code (e.g., `ABCD`).
+5. window B: enter a name (e.g., natalie), paste the room code, and click **join duel**.
+6. both windows should display the same lobby roster with host labels.
+7. click **ready up** in each window; the ready indicators should flip in real time.
+8. host window: **start duel** becomes enabled once both players are ready—click it.
+9. both windows should transition to the “duel in progress” view showing round 1.
+10. optionally close one window; the other should update to show only one player (lobby cleaned up).
 
-once those steps work, stop. no real game logic, tts, or gemini gets added until phase 3.
+the ping button + socket status are still there for debugging, but the real focus is the lobby/duel lifecycle.
 
 ---
 
@@ -60,10 +64,10 @@ once those steps work, stop. no real game logic, tts, or gemini gets added until
 1. `cd server && npm run dev`
    - server logs `spellcaster server listening on port 4000`
    - `/health` responds with `{ "status": "ok" }`
-   - ping requests print `received ping from ...`
+   - lobby logs appear when players create/join/leave
 2. `cd client && npm run dev`
    - vite starts without errors
-   - socket status shows `connecting` then `connected`
-   - ping button lights up once connected and displays the last pong timestamp
+   - you can create or join a lobby, see ready states, and start a duel
+   - duel view displays “round 1” placeholder once started
 
-after that we’re officially done with phase 2 wiring. the next phases will layer in lobby management, round flow, and all the wizard flair.
+after that we’re officially done with the lobby + duel skeleton. phase 4 will layer in spell logic, scoring, and the gemini / tts integrations.
