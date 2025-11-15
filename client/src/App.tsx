@@ -6,15 +6,9 @@ import { WizardBeam } from './components/WizardBeam';
 import { CountdownDisplay } from './components/CountdownDisplay';
 import { GameSummaryCard } from './components/GameSummaryCard';
 import { HostSettingsModal } from './components/HostSettingsModal';
+import { OnScreenKeyboard } from './components/OnScreenKeyboard';
 import { SERVER_URL } from './lib/config';
 import type { GameSettings } from '../../shared/types/socket';
-
-const castingPrompts = [
-  'Focus on the cadence of the wizarding voice.',
-  'Your wand quivers as each rune etches into your mind.',
-  'Do not trust your eyes—trust the echo of the spell.',
-  'Let the syllables settle before you strike.',
-];
 
 const DEFAULT_SETTINGS: GameSettings = {
   difficulty: 'medium',
@@ -32,6 +26,7 @@ const App: React.FC = () => {
     roundRecap,
     summary,
     scores,
+    roundSubmissions,
     error,
     localPlayer,
     createLobby,
@@ -50,7 +45,6 @@ const App: React.FC = () => {
   const [typingStartedAt, setTypingStartedAt] = useState<number | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
-  const [feedbackPulse, setFeedbackPulse] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -280,7 +274,6 @@ const App: React.FC = () => {
 
   const handleGuessChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentGuess(event.target.value.toUpperCase());
-    setFeedbackPulse((prev) => prev + 1);
   };
 
   const handleSubmitSpell = () => {
@@ -294,58 +287,80 @@ const App: React.FC = () => {
 
   const showResultsPending = hasSubmitted && !roundRecap && !prompt && !countdown;
 
+  const opponent = useMemo(() => {
+    if (!duel || !localPlayer) {
+      return null;
+    }
+    return duel.players.find((player) => player.id !== localPlayer.id) ?? null;
+  }, [duel, localPlayer]);
+
+  const opponentSubmitted =
+    opponent &&
+    roundSubmissions &&
+    roundSubmissions.roundNumber === currentRoundNumber &&
+    Boolean(roundSubmissions.playerIds[opponent.id]);
+
   const renderCastingPanel = () => (
     <div className="rounded-2xl border border-indigo-500/40 bg-slate-900/70 p-6 space-y-4">
-      <div className="space-y-1">
+      <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
           round {currentRoundNumber} / {totalRounds}
         </p>
-        <p className="text-lg font-semibold text-slate-100">listen. conjure. commit.</p>
-        <p className="text-sm text-slate-400">
-          {castingPrompts[currentRoundNumber % castingPrompts.length]}
-        </p>
+        <p className="text-lg font-semibold text-slate-100">type what you hear!</p>
+        {opponent && (
+          <p className="text-sm text-slate-400">
+            {opponentSubmitted ? `${opponent.name} casted their spell!` : `${opponent.name} is typing...`}
+          </p>
+        )}
       </div>
 
-      <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-4 space-y-4">
-        <label htmlFor="spell-input" className="text-xs uppercase tracking-wide text-slate-400">
-          enter the incantation (keystrokes remain hidden)
-        </label>
-        <input
-          ref={inputRef}
-          id="spell-input"
-          value={currentGuess}
-          onChange={handleGuessChange}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              handleSubmitSpell();
-            }
-          }}
-          placeholder="silently channel the letters..."
-          className="casting-input w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-        />
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>
-            {hasSubmitted ? 'Submission locked. Awaiting opponent...' : 'You will not see your letters.'}
-          </span>
-          <span className="flex items-center gap-1 text-emerald-300">
-            <span className={`h-2 w-2 rounded-full bg-emerald-400 ${feedbackPulse % 2 === 0 ? 'animate-ping' : ''}`} />
-            keystroke pulse
+      <input
+        ref={inputRef}
+        id="spell-input"
+        value={currentGuess}
+        onChange={handleGuessChange}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            handleSubmitSpell();
+          }
+        }}
+        className="sr-only-input"
+        autoFocus
+        autoComplete="off"
+        autoCapitalize="characters"
+        spellCheck={false}
+      />
+
+      <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 space-y-2">
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">wizard keyboard feedback</p>
+        <OnScreenKeyboard />
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSubmitSpell}
+          disabled={!prompt || hasSubmitted}
+          className="flex-1 rounded-lg bg-emerald-600 py-3 text-lg font-semibold uppercase tracking-widest hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {hasSubmitted ? (
+            <span className="inline-flex items-center gap-2">
+              Spell Casted
+              <span className="inline-block text-xl">✔</span>
+            </span>
+          ) : (
+            'cast spell'
+          )}
+        </button>
+        <div className="flex items-center gap-2 text-sm text-slate-400 select-none">
+          <span>or press</span>
+          <span className="inline-flex items-center gap-1 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 font-mono text-xs uppercase">
+            enter
           </span>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleSubmitSpell}
-        disabled={!prompt || hasSubmitted}
-        className="w-full rounded-lg bg-emerald-600 py-3 text-lg font-semibold uppercase tracking-widest hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        cast spell
-      </button>
     </div>
   );
 
