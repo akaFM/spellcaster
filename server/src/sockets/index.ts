@@ -1,19 +1,33 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData,
+} from '../../../shared/types/socket';
 
-export function registerSocketHandlers(io: SocketIOServer) {
+export function registerSocketHandlers(
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+) {
   // this gets called from index.ts whenever a socket connects
-  io.on('connection', (socket: Socket) => {
+  io.on(
+    'connection',
+    (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
     console.log(`client connected: ${socket.id}`);
 
-    // quick ping/pong tester so we know sockets are hooked up
+    // phase 2 ping/pong tester with a timestamp
     socket.on('ping', () => {
-      socket.emit('pong');
+      console.log(`received ping from ${socket.id}`);
+      socket.emit('pong', {
+        timestamp: new Date().toISOString(),
+      });
     });
 
     // just log disconnects for now
     socket.on('disconnect', (reason) => {
       console.log(`client disconnected: ${socket.id} (${reason})`);
     });
-  });
+    }
+  );
 }
 
