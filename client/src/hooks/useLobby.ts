@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getSocket } from '../lib/socket';
 import type {
+  CountdownPayload,
   DuelState,
+  GameSettings,
+  GameSummary,
   LobbyState,
   Player,
+  RoundRecapPayload,
   ServerErrorPayload,
+  SpellPromptPayload,
 } from '../../../shared/types/socket';
 
 interface UseLobbyResult {
   lobby: LobbyState | null;
   duel: DuelState | null;
+  countdown: CountdownPayload | null;
+  prompt: SpellPromptPayload | null;
+  roundRecap: RoundRecapPayload | null;
+  summary: GameSummary | null;
+  scores: Record<string, number>;
   error: string | null;
   localPlayer: Player | null;
   createLobby: (playerName: string) => void;
@@ -17,7 +27,10 @@ interface UseLobbyResult {
   leaveLobby: () => void;
   setReady: (ready: boolean) => void;
   startDuel: () => void;
+  submitSpell: (guess: string, durationMs: number, promptId: string) => void;
+  updateSettings: (settings: Partial<GameSettings>) => void;
   clearError: () => void;
+  resetSummary: () => void;
 }
 
 export function useLobby(): UseLobbyResult {
@@ -25,6 +38,11 @@ export function useLobby(): UseLobbyResult {
   const [duel, setDuel] = useState<DuelState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [socketId, setSocketId] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<CountdownPayload | null>(null);
+  const [prompt, setPrompt] = useState<SpellPromptPayload | null>(null);
+  const [roundRecap, setRoundRecap] = useState<RoundRecapPayload | null>(null);
+  const [summary, setSummary] = useState<GameSummary | null>(null);
+  const [scores, setScores] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const socket = getSocket();
@@ -38,6 +56,80 @@ export function useLobby(): UseLobbyResult {
 
     const handleDuelStarted = (state: DuelState) => {
       setDuel(state);
+      setScores(
+        state.players.reduce<Record<string, number>>((acc, player) => {
+          acc[player.id] = 0;
+          return acc;
+        }, {})
+      );
+      setCountdown(null);
+      setPrompt(null);
+      setRoundRecap(null);
+      setSummary(null);
+    };
+
+    const handleCountdown = (payload: CountdownPayload) => {
+      setCountdown(payload);
+      setPrompt(null);
+      setRoundRecap(null);
+      setDuel((prev) =>
+        prev
+          ? {
+              ...prev,
+              round: payload.roundNumber,
+            }
+          : prev
+      );
+    };
+
+    const handlePrompt = (payload: SpellPromptPayload) => {
+      setPrompt(payload);
+      setCountdown(null);
+      setRoundRecap(null);
+      setDuel((prev) =>
+        prev
+          ? {
+              ...prev,
+              round: payload.roundNumber,
+            }
+          : prev
+      );
+    };
+
+    const handleRoundRecap = (payload: RoundRecapPayload) => {
+      setRoundRecap(payload);
+      setPrompt(null);
+      setCountdown(null);
+      setScores((prev) => {
+        const next = { ...prev };
+        payload.playerResults.forEach((result) => {
+          next[result.playerId] = result.cumulativeScore;
+        });
+        return next;
+      });
+      setDuel((prev) =>
+        prev
+          ? {
+              ...prev,
+              beamOffset: payload.beamOffset,
+              round: payload.roundNumber,
+            }
+          : prev
+      );
+    };
+
+    const handleCompleted = (payload: GameSummary) => {
+      setSummary(payload);
+      setCountdown(null);
+      setPrompt(null);
+      setRoundRecap(null);
+      setDuel(null);
+      setScores(
+        payload.players.reduce<Record<string, number>>((acc, player) => {
+          acc[player.playerId] = player.totalScore;
+          return acc;
+        }, {})
+      );
     };
 
     const handleError = (payload: ServerErrorPayload) => {
@@ -54,6 +146,10 @@ export function useLobby(): UseLobbyResult {
 
     socket.on('lobby:state', handleLobbyState);
     socket.on('duel:started', handleDuelStarted);
+    socket.on('duel:countdown', handleCountdown);
+    socket.on('duel:prompt', handlePrompt);
+    socket.on('duel:roundRecap', handleRoundRecap);
+    socket.on('duel:completed', handleCompleted);
     socket.on('error', handleError);
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
@@ -65,6 +161,10 @@ export function useLobby(): UseLobbyResult {
     return () => {
       socket.off('lobby:state', handleLobbyState);
       socket.off('duel:started', handleDuelStarted);
+      socket.off('duel:countdown', handleCountdown);
+      socket.off('duel:prompt', handlePrompt);
+      socket.off('duel:roundRecap', handleRoundRecap);
+      socket.off('duel:completed', handleCompleted);
       socket.off('error', handleError);
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
@@ -106,6 +206,11 @@ export function useLobby(): UseLobbyResult {
     socketRef().emit('lobby:leave');
     setLobby(null);
     setDuel(null);
+    setCountdown(null);
+    setPrompt(null);
+    setRoundRecap(null);
+    setSummary(null);
+    setScores({});
   };
 
   const setReady = (ready: boolean) => {
@@ -122,11 +227,39 @@ export function useLobby(): UseLobbyResult {
     socketRef().emit('lobby:startDuel', { roomCode: lobby.roomCode });
   };
 
+  const submitSpell = (guess: string, durationMs: number, promptId: string) => {
+    if (!lobby || !promptId) {
+      return;
+    }
+    socketRef().emit('duel:submitSpell', {
+      roomCode: lobby.roomCode,
+      promptId,
+      guess: guess.trim().toUpperCase(),
+      durationMs,
+    });
+  };
+
+  const updateSettings = (settings: Partial<GameSettings>) => {
+    if (!lobby) {
+      return;
+    }
+    socketRef().emit('lobby:updateSettings', {
+      roomCode: lobby.roomCode,
+      settings,
+    });
+  };
+
   const clearError = () => setError(null);
+  const resetSummary = () => setSummary(null);
 
   return {
     lobby,
     duel,
+    countdown,
+    prompt,
+    roundRecap,
+    summary,
+    scores,
     error,
     localPlayer,
     createLobby,
@@ -134,7 +267,10 @@ export function useLobby(): UseLobbyResult {
     leaveLobby,
     setReady,
     startDuel,
+    submitSpell,
+    updateSettings,
     clearError,
+    resetSummary,
   };
 }
 
