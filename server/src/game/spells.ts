@@ -1,4 +1,5 @@
 import { SpellDifficulty } from '../../../shared/types/socket';
+import spellCatalog from './spellCatalog.json';
 
 export interface SpellDefinition {
   id: string;
@@ -15,73 +16,12 @@ const createSpellList = (difficulty: SpellDifficulty, incantations: string[]): S
     difficulty,
   }));
 
+const spellWords = spellCatalog as Record<SpellDifficulty, string[]>;
+
 const spellData: SpellDictionary = {
-  easy: createSpellList('easy', [
-    'LUMOS',
-    'NOX',
-    'RIDDIKULUS',
-    'ALO HOMORA',
-    'WINGARDIUM LEVIOSA',
-    'PROTEGO',
-    'FINITE',
-    'EXPELLIARMUS',
-    'QUIETUS',
-    'REPARO',
-    'SONORUS',
-    'LUMOS MAXIMA',
-    'OBLIVIATE',
-    'PETRIFICUS TOTALUS',
-    'INCENDIO',
-    'DIFFINDO',
-    'GLACIUS',
-    'SCURGIFY',
-    'MUFFLIATO',
-    'IMMOBULUS',
-  ]),
-  medium: createSpellList('medium', [
-    'EXPECTO PATRONUM',
-    'SECTUMSEMPRA',
-    'REDUCTO',
-    'AVIFORS',
-    'LEVICORPUS',
-    'IMPERVIUS',
-    'ARRESTO MOMENTUM',
-    'CONFUNDO',
-    'SILENCIO',
-    'FERULA',
-    'OPPUGNO',
-    'RAPTORIALIS IGNIS',
-    'CAELUM TEMPESTAS',
-    'VENTUS TURBINE',
-    'FULGARIUS',
-    'CALIGO SPIRA',
-    'MORS VINCULA',
-    'VIGILO OCULUS',
-    'VOLATUS AETERNA',
-    'TENEBRAE LIGARE',
-  ]),
-  hard: createSpellList('hard', [
-    'AVADA KEDAVRA',
-    'CRUCIO',
-    'IMPERIO',
-    'FIENDFYRE',
-    'HORRENDUM SPIRA',
-    'AER LACERUM',
-    'MORS CERULEA',
-    'VULNERA SANENTUR',
-    'INCURSUS NOCTURNA',
-    'UMBRA CONFLAGRATIO',
-    'VOLATILIS FULMEN',
-    'SANGUINIS CIRCULO',
-    'NECROSI CATENA',
-    'OBSCURA VERITAS',
-    'INFINITAS SOMNUS',
-    'MALIFICUS LAMINA',
-    'GLACIES RUINAM',
-    'FUROR TEMPESTAS',
-    'ARCANA VORTEX',
-    'UMBRAE DEVORO',
-  ]),
+  easy: createSpellList('easy', spellWords.easy),
+  medium: createSpellList('medium', spellWords.medium),
+  hard: createSpellList('hard', spellWords.hard),
 };
 
 export function getSpellPool(difficulty: SpellDifficulty): SpellDefinition[] {

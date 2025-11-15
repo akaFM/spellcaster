@@ -17,7 +17,7 @@ import { buildSpellQueue, SpellDefinition } from './spells';
 import { computeRoundScore } from './scoring';
 
 const COUNTDOWN_MS = 3000;
-const ROUND_TIMEOUT_MS = 30000;
+const ROUND_TIMEOUT_MS = 10000;
 const RECAP_DELAY_MS = 1000;
 const BETWEEN_ROUND_DELAY_MS = 8000;
 const BEAM_THRESHOLD = 100;

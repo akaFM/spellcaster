@@ -54,7 +54,9 @@ const App: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
-  const pendingAudioRef = useRef<{ roundNumber: number; url: string } | null>(null);
+  const pendingAudioRef = useRef<{ roundNumber: number; url: string; readingSpeed: number } | null>(
+    null
+  );
   const audioFetchControllerRef = useRef<AbortController | null>(null);
   const [hostSettingsModalOpen, setHostSettingsModalOpen] = useState(false);
   const [hostSettings, setHostSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
@@ -121,12 +123,15 @@ const App: React.FC = () => {
   );
 
   const preloadSpellAudio = useCallback(
-    async (roundNumber: number, text: string) => {
+    async (roundNumber: number, text: string, readingSpeed: number) => {
       if (!text || !roundNumber) {
         return;
       }
 
-      if (pendingAudioRef.current?.roundNumber === roundNumber) {
+      if (
+        pendingAudioRef.current?.roundNumber === roundNumber &&
+        pendingAudioRef.current.readingSpeed === readingSpeed
+      ) {
         return;
       }
 
@@ -141,6 +146,7 @@ const App: React.FC = () => {
           },
           body: JSON.stringify({
             text,
+            readingSpeed,
           }),
           signal: audioFetchControllerRef.current.signal,
         });
@@ -153,7 +159,7 @@ const App: React.FC = () => {
         const blob = await response.blob();
         cleanupPendingAudio();
         const url = URL.createObjectURL(blob);
-        pendingAudioRef.current = { roundNumber, url };
+        pendingAudioRef.current = { roundNumber, url, readingSpeed };
       } catch (error) {
         if (audioFetchControllerRef.current?.signal.aborted) {
           return;
@@ -168,7 +174,7 @@ const App: React.FC = () => {
     if (!countdown?.spellText) {
       return;
     }
-    preloadSpellAudio(countdown.roundNumber, countdown.spellText);
+    preloadSpellAudio(countdown.roundNumber, countdown.spellText, countdown.readingSpeed);
   }, [countdown, preloadSpellAudio]);
 
   useEffect(() => {
@@ -195,15 +201,23 @@ const App: React.FC = () => {
     let cancelled = false;
 
     const ensureAudio = async () => {
-      if (!pendingAudioRef.current || pendingAudioRef.current.roundNumber !== prompt.roundNumber) {
-        await preloadSpellAudio(prompt.roundNumber, prompt.spellText);
+      if (
+        !pendingAudioRef.current ||
+        pendingAudioRef.current.roundNumber !== prompt.roundNumber ||
+        pendingAudioRef.current.readingSpeed !== prompt.readingSpeed
+      ) {
+        await preloadSpellAudio(prompt.roundNumber, prompt.spellText, prompt.readingSpeed);
       }
       if (cancelled) {
         return;
       }
 
       const cached = pendingAudioRef.current;
-      if (!cached || cached.roundNumber !== prompt.roundNumber) {
+      if (
+        !cached ||
+        cached.roundNumber !== prompt.roundNumber ||
+        cached.readingSpeed !== prompt.readingSpeed
+      ) {
         console.warn('spell audio not ready in time, skipping playback');
         return;
       }
