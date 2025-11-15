@@ -52,8 +52,51 @@ const App: React.FC = () => {
     null
   );
   const audioFetchControllerRef = useRef<AbortController | null>(null);
+  const victorySfxRef = useRef<HTMLAudioElement | null>(null);
+  const lossSfxRef = useRef<HTMLAudioElement | null>(null);
   const [hostSettingsModalOpen, setHostSettingsModalOpen] = useState(false);
   const [hostSettings, setHostSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
+
+  const cleanupAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+  }, []);
+  const playSpellCastSfx = useCallback(() => {
+    const randomTrack = Math.random() < 0.5 ? '/audio/spell1.wav' : '/audio/spell2.mp3';
+    const audio = new Audio(randomTrack);
+    audio.play().catch((error) => console.error('spell sfx failed', error));
+  }, []);
+
+  const playVictorySfx = useCallback(() => {
+    try {
+      if (!victorySfxRef.current) {
+        victorySfxRef.current = new Audio('/audio/victory.wav');
+      }
+      victorySfxRef.current.currentTime = 0;
+      void victorySfxRef.current.play();
+    } catch (error) {
+      console.error('victory sfx failed', error);
+    }
+  }, []);
+
+  const playLossSfx = useCallback(() => {
+    try {
+      if (!lossSfxRef.current) {
+        lossSfxRef.current = new Audio('/audio/loss.mp3');
+      }
+      lossSfxRef.current.currentTime = 0;
+      void lossSfxRef.current.play();
+    } catch (error) {
+      console.error('loss sfx failed', error);
+    }
+  }, []);
 
   useEffect(() => {
     if (!countdown) {
@@ -73,17 +116,16 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [countdown]);
 
-  const cleanupAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      audioRef.current = null;
+  useEffect(() => {
+    if (!summary || !localPlayer) {
+      return;
     }
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
+    if (summary.winnerId === localPlayer.id) {
+      playVictorySfx();
+    } else {
+      playLossSfx();
     }
-  }, []);
+  }, [summary, localPlayer, playVictorySfx, playLossSfx]);
 
   const cleanupPendingAudio = useCallback(() => {
     if (pendingAudioRef.current) {
@@ -283,6 +325,7 @@ const App: React.FC = () => {
     const duration = typingStartedAt ? Math.max(0, performance.now() - typingStartedAt) : 0;
     submitSpell(currentGuess, duration, prompt.promptId);
     setHasSubmitted(true);
+    playSpellCastSfx();
   };
 
   const showResultsPending = hasSubmitted && !roundRecap && !prompt && !countdown;
@@ -323,6 +366,9 @@ const App: React.FC = () => {
           if (event.key === 'Enter') {
             event.preventDefault();
             handleSubmitSpell();
+          }
+          if (event.key === 'Backspace' || event.key === 'Delete') {
+            event.preventDefault();
           }
         }}
         className="sr-only-input"
@@ -515,25 +561,25 @@ const App: React.FC = () => {
             <p className="text-xs uppercase tracking-wide text-slate-400">turn timer</p>
             <p className="text-sm text-slate-200">
               {prompt ? 'spell being cast' : countdown ? 'countdown' : 'standing by'}
-            </p>
+        </p>
           </div>
-        </div>
+      </div>
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {activePlayers.map((player) => (
-            <div
-              key={player.id}
+          <div
+            key={player.id}
               className={`rounded-xl border px-3 py-2 ${
                 player.isHost ? 'border-indigo-500/60' : 'border-rose-500/60'
               }`}
-            >
+          >
               <p className="text-sm font-semibold">
-                {player.name}{' '}
+              {player.name}{' '}
                 {player.id === localPlayer?.id && <span className="text-xs text-slate-400">(you)</span>}
               </p>
               <p className="text-xs text-slate-400">score {scores[player.id] ?? 0}</p>
-            </div>
-          ))}
+          </div>
+        ))}
         </div>
       </div>
 
