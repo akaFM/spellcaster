@@ -168,7 +168,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
                   <div className="space-y-3 text-center md:text-left">
                     <div>
                       <p className="font-incantation text-2xl text-white">{selectedWizard.name}</p>
-                      <p className="text-sm text-slate-300">{selectedWizard.description}</p>
                     </div>
                     <div className="flex flex-col gap-3 sm:items-start">
                       <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-300">
