@@ -212,13 +212,23 @@ export function registerSocketHandlers(
           return sendError(socket, 'you are not part of this duel');
         }
 
+        // Log received submission for debugging
+        console.log(`[SOCKET] Received submission from ${socket.id} (${participant.name}):`, {
+          roomCode: code,
+          promptId,
+          guess: guess?.substring(0, 20) + (guess?.length > 20 ? '...' : ''),
+          guessLength: guess?.length ?? 0,
+          durationMs,
+        });
+
         const result = duelManager.handleSubmission(code, socket.id, {
           promptId,
-          guess,
+          guess: guess || '',
           durationMs,
         });
 
         if (result) {
+          console.log(`[SOCKET] Submission rejected for ${socket.id}:`, result);
           return sendError(socket, result);
         }
       });

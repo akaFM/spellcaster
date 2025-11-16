@@ -279,10 +279,11 @@ export function useLobby(): UseLobbyResult {
     if (!lobby || !promptId) {
       return;
     }
+    const guessToSubmit = guess.trim().toUpperCase();
     socketRef().emit('duel:submitSpell', {
       roomCode: lobby.roomCode,
       promptId,
-      guess: guess.trim().toUpperCase(),
+      guess: guessToSubmit,
       durationMs,
     });
   };

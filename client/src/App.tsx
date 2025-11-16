@@ -47,6 +47,8 @@ const App: React.FC = () => {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const promptIdRef = useRef<string | null>(null);
+  const promptReadyRef = useRef<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const pendingAudioRef = useRef<{ roundNumber: number; url: string; readingSpeed: number } | null>(
@@ -243,14 +245,49 @@ const App: React.FC = () => {
       setCurrentGuess('');
       setTypingStartedAt(null);
       setHasSubmitted(false);
+      promptReadyRef.current = false;
       cleanupAudio();
       cleanupPendingAudio();
       return;
     }
-    setCurrentGuess('');
-    setHasSubmitted(false);
-    setTypingStartedAt(performance.now());
-    requestAnimationFrame(() => inputRef.current?.focus());
+    
+    // Only reset guess if it's a new prompt (different promptId)
+    // This prevents resetting the guess if the prompt object is recreated but is the same prompt
+    const isNewPrompt = promptIdRef.current !== prompt.promptId;
+    
+    if (isNewPrompt) {
+      setCurrentGuess('');
+      setHasSubmitted(false);
+      promptReadyRef.current = false; // Mark as not ready until initialization is complete
+      setTypingStartedAt(performance.now());
+      promptIdRef.current = prompt.promptId;
+    }
+    
+    // More robust focus mechanism with multiple attempts
+    const focusInput = () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // Try again after a short delay to ensure focus
+        setTimeout(() => {
+          if (inputRef.current && document.activeElement !== inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 100);
+      }
+    };
+    
+    // Use requestAnimationFrame for initial focus, then setTimeout as backup
+    requestAnimationFrame(() => {
+      focusInput();
+      
+      // Mark prompt as ready after a small delay to ensure everything is initialized
+      // This prevents race conditions where Enter is pressed before the prompt is fully ready
+      setTimeout(() => {
+        if (promptIdRef.current === prompt.promptId && inputRef.current) {
+          promptReadyRef.current = true;
+        }
+      }, 200);
+    });
   }, [prompt, cleanupAudio, cleanupPendingAudio]);
 
   useEffect(() => {
@@ -352,17 +389,97 @@ const App: React.FC = () => {
     setCurrentGuess(event.target.value.toUpperCase());
   };
 
-  const handleSubmitSpell = () => {
+  const handleSubmitSpell = useCallback(() => {
     if (!prompt || hasSubmitted) {
       return;
     }
+    if (!prompt.promptId) {
+      return;
+    }
+    
+    // Ensure prompt is ready before allowing submission
+    // This prevents race conditions where Enter is pressed before the prompt is fully initialized
+    if (!promptReadyRef.current) {
+      // If prompt isn't ready yet, wait a bit and check again
+      // This handles the case where Enter is pressed immediately after prompt appears
+      const checkReady = () => {
+        // Check current state using refs to avoid closure issues
+        if (promptReadyRef.current && promptIdRef.current === prompt.promptId && !hasSubmitted && prompt) {
+          // Retry submission now that prompt is ready
+          const inputValue = inputRef.current?.value || currentGuess;
+          const guessToSubmit = inputValue.trim().toUpperCase();
+          if (guessToSubmit) {
+            const duration = typingStartedAt ? Math.max(0, performance.now() - typingStartedAt) : 0;
+            submitSpell(guessToSubmit, duration, prompt.promptId);
+            setHasSubmitted(true);
+            playSpellCastSfx();
+          }
+        } else if (!promptReadyRef.current && promptIdRef.current === prompt.promptId && prompt) {
+          // Still not ready, check again in a bit (max 10 attempts = 500ms)
+          const attempts = (checkReady as any).attempts || 0;
+          if (attempts < 10) {
+            (checkReady as any).attempts = attempts + 1;
+            setTimeout(checkReady, 50);
+          }
+        }
+      };
+      (checkReady as any).attempts = 0;
+      setTimeout(checkReady, 50);
+      return;
+    }
+    
+    // Read the guess directly from the input element to avoid state sync issues
+    const inputValue = inputRef.current?.value || currentGuess;
+    const guessToSubmit = inputValue.trim().toUpperCase();
+    
+    // Don't submit if guess is empty (unless it's intentional)
+    if (!guessToSubmit) {
+      return;
+    }
+    
     const duration = typingStartedAt ? Math.max(0, performance.now() - typingStartedAt) : 0;
-    submitSpell(currentGuess, duration, prompt.promptId);
+    submitSpell(guessToSubmit, duration, prompt.promptId);
     setHasSubmitted(true);
     playSpellCastSfx();
-  };
+  }, [prompt, hasSubmitted, currentGuess, typingStartedAt, submitSpell, playSpellCastSfx]);
 
   const showResultsPending = hasSubmitted && !roundRecap && !prompt && !countdown;
+
+  // Global Enter key handler as fallback when input might not be focused
+  useEffect(() => {
+    if (!inDuel || !prompt || hasSubmitted) {
+      return;
+    }
+
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      // Only handle Enter key
+      if (event.key !== 'Enter') {
+        return;
+      }
+
+      // Don't interfere if user is typing in an input/textarea
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Focus the input, wait for it to be ready, then submit
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // Give time for focus and any pending state updates
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            handleSubmitSpell();
+          }, 100);
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [inDuel, prompt, hasSubmitted, handleSubmitSpell]);
 
   const opponent = useMemo(() => {
     if (!duel || !localPlayer) {
@@ -463,6 +580,7 @@ const App: React.FC = () => {
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
+              event.stopPropagation();
               handleSubmitSpell();
             }
             if (event.key === 'Backspace' || event.key === 'Delete') {

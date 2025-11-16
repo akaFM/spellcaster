@@ -97,6 +97,7 @@ const GamePage: React.FC<GamePageProps> = ({
           onClick={onSubmitSpell}
           disabled={!prompt || hasSubmitted}
           className="group relative overflow-hidden rounded-2xl border border-emerald-200/40 bg-gradient-to-r from-emerald-500/30 via-indigo-600/30 to-cyan-500/30 px-3 py-1.5 text-xs font-spellcaster text-emerald-50 shadow-[0_12px_28px_rgba(6,95,70,0.45)] transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          title={!prompt ? 'Waiting for prompt...' : hasSubmitted ? 'Already submitted' : 'Cast your spell'}
         >
           <span className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100">
             <span className="absolute inset-y-0 left-0 w-2/5 bg-gradient-to-r from-emerald-300/30 to-transparent blur-xl" />
