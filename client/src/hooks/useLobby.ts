@@ -24,8 +24,8 @@ interface UseLobbyResult {
   roundSubmissions: { roundNumber: number; playerIds: Record<string, boolean> } | null;
   error: string | null;
   localPlayer: Player | null;
-  createLobby: (playerName: string, settings?: GameSettings) => void;
-  joinLobby: (roomCode: string, playerName: string) => void;
+  createLobby: (playerName: string, settings?: GameSettings, wizardId?: string) => void;
+  joinLobby: (roomCode: string, playerName: string, wizardId?: string) => void;
   leaveLobby: () => void;
   setReady: (ready: boolean) => void;
   startDuel: () => void;
@@ -228,17 +228,17 @@ export function useLobby(): UseLobbyResult {
 
   const socketRef = () => getSocket();
 
-  const createLobby = (playerName: string, settings?: GameSettings) => {
+  const createLobby = (playerName: string, settings?: GameSettings, wizardId?: string) => {
     const name = playerName.trim();
     if (!name) {
       setError('please enter your name first');
       return;
     }
     setError(null);
-    socketRef().emit('lobby:create', { playerName: name, settings });
+    socketRef().emit('lobby:create', { playerName: name, settings, wizardId });
   };
 
-  const joinLobby = (roomCode: string, playerName: string) => {
+  const joinLobby = (roomCode: string, playerName: string, wizardId?: string) => {
     const name = playerName.trim();
     const code = roomCode.trim().toUpperCase();
     if (!name || !code) {
@@ -246,7 +246,7 @@ export function useLobby(): UseLobbyResult {
       return;
     }
     setError(null);
-    socketRef().emit('lobby:join', { roomCode: code, playerName: name });
+    socketRef().emit('lobby:join', { roomCode: code, playerName: name, wizardId });
   };
 
   const leaveLobby = () => {

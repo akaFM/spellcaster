@@ -56,8 +56,8 @@ const WIZARDS: Wizard[] = [
 ];
 
 type LandingPageProps = {
-  onHostGame: (nickname: string) => void;
-  onJoinGame: (nickname: string, joinCode: string) => void;
+  onHostGame: (nickname: string, wizardId: string) => void;
+  onJoinGame: (nickname: string, joinCode: string, wizardId: string) => void;
   serverError?: string | null;
   onClearError?: () => void;
 };
@@ -102,7 +102,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
   };
 
   const handleHostGame = () => {
-    onHostGame(nickname);
+    onHostGame(nickname, selectedWizardId);
     setStatusMessage('Summoning your lobby soon...');
   };
 
@@ -114,7 +114,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
 
     setJoinError('');
     setStatusMessage('✨ Attempting to join the duel gate...');
-    onJoinGame(nickname, joinCode);
+    onJoinGame(nickname, joinCode, selectedWizardId);
   };
 
   return (
