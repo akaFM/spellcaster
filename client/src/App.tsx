@@ -1,14 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LandingPage from './pages/LandingPage';
 import LobbyPage from './pages/LobbyPage';
+import GamePage from './pages/GamePage';
 import { useSocketConnection } from './hooks/useSocketConnection';
 import { useLobby } from './hooks/useLobby';
-import { RoundRecapCard } from './components/RoundRecapCard';
-import { WizardBeam } from './components/WizardBeam';
-import { CountdownDisplay } from './components/CountdownDisplay';
 import { GameSummaryCard } from './components/GameSummaryCard';
 import { HostSettingsModal } from './components/HostSettingsModal';
-import { OnScreenKeyboard } from './components/OnScreenKeyboard';
 import { SERVER_URL } from './lib/config';
 import type { GameSettings } from '../../shared/types/socket';
 
@@ -332,8 +329,6 @@ const App: React.FC = () => {
 
   const currentRoundNumber =
     countdown?.roundNumber ?? prompt?.roundNumber ?? roundRecap?.roundNumber ?? duel?.round ?? 1;
-  const totalRounds = duel?.totalRounds ?? lobby?.settings?.rounds ?? 5;
-  const beamOffset = duel?.beamOffset ?? 0;
 
   const handleCreate = () => createLobby(playerName, hostSettings, playerWizardId);
   const handleJoin = () => joinLobby(roomCodeInput, playerName, playerWizardId);
@@ -382,72 +377,6 @@ const App: React.FC = () => {
     roundSubmissions.roundNumber === currentRoundNumber &&
     Boolean(roundSubmissions.playerIds[opponent.id]);
 
-  const renderCastingPanel = () => (
-    <div className="rounded-2xl border border-indigo-500/40 bg-slate-900/70 p-6 space-y-4">
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-          round {currentRoundNumber} / {totalRounds}
-        </p>
-        <p className="text-lg font-semibold text-slate-100">type what you hear!</p>
-        {opponent && (
-          <p className="text-sm text-slate-400">
-            {opponentSubmitted ? `${opponent.name} casted their spell!` : `${opponent.name} is typing...`}
-          </p>
-        )}
-      </div>
-
-      <input
-        ref={inputRef}
-        id="spell-input"
-        value={currentGuess}
-        onChange={handleGuessChange}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            handleSubmitSpell();
-          }
-          if (event.key === 'Backspace' || event.key === 'Delete') {
-            event.preventDefault();
-          }
-        }}
-        className="sr-only-input"
-        autoFocus
-        autoComplete="off"
-        autoCapitalize="characters"
-        spellCheck={false}
-      />
-
-      <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 space-y-2">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">wizard keyboard feedback</p>
-        <OnScreenKeyboard />
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <button
-          type="button"
-          onClick={handleSubmitSpell}
-          disabled={!prompt || hasSubmitted}
-          className="flex-1 rounded-lg bg-emerald-600 py-3 text-lg font-semibold uppercase tracking-widest hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {hasSubmitted ? (
-            <span className="inline-flex items-center gap-2">
-              Spell Casted
-              <span className="inline-block text-xl">✔</span>
-            </span>
-          ) : (
-            'cast spell'
-          )}
-        </button>
-        <div className="flex items-center gap-2 text-sm text-slate-400 select-none">
-          <span>or press</span>
-          <span className="inline-flex items-center gap-1 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 font-mono text-xs uppercase">
-            enter
-          </span>
-        </div>
-      </div>
-
-    </div>
-  );
 
   const renderEntry = () => (
     <div className="space-y-4">
@@ -494,75 +423,6 @@ const App: React.FC = () => {
   );
 
 
-  const renderDuel = () => (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-slate-400">duel room</p>
-          <p className="text-2xl font-semibold tracking-widest">{lobby?.roomCode}</p>
-        </div>
-        <button
-          onClick={() => {
-            leaveLobby();
-            setCurrentScreen('landing');
-          }}
-          className="text-sm text-rose-300 hover:text-rose-200 underline underline-offset-2"
-        >
-          leave duel
-        </button>
-      </div>
-
-      <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-lg font-semibold">round {currentRoundNumber}</p>
-            <p className="text-sm text-slate-400">first to overwhelm the beam wins</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-wide text-slate-400">turn timer</p>
-            <p className="text-sm text-slate-200">
-              {prompt ? 'spell being cast' : countdown ? 'countdown' : 'standing by'}
-        </p>
-          </div>
-      </div>
-
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {activePlayers.map((player) => (
-          <div
-            key={player.id}
-              className={`rounded-xl border px-3 py-2 ${
-                player.isHost ? 'border-indigo-500/60' : 'border-rose-500/60'
-              }`}
-          >
-              <p className="text-sm font-semibold">
-              {player.name}{' '}
-                {player.id === localPlayer?.id && <span className="text-xs text-slate-400">(you)</span>}
-              </p>
-              <p className="text-xs text-slate-400">score {scores[player.id] ?? 0}</p>
-          </div>
-        ))}
-        </div>
-      </div>
-
-      {roundRecap && <RoundRecapCard recap={roundRecap} localPlayerId={localPlayer?.id ?? null} />}
-      {!roundRecap && countdown && countdownValue && (
-        <CountdownDisplay
-          value={Math.max(1, Math.round(countdownValue))}
-          roundNumber={countdown.roundNumber}
-          totalRounds={countdown.totalRounds}
-        />
-      )}
-      {!roundRecap && !countdown && prompt && renderCastingPanel()}
-
-      {showResultsPending && (
-        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-center text-sm text-amber-100">
-          adjudicating this round... both wizards must finish before the scroll reveals your work.
-        </div>
-      )}
-
-      <WizardBeam players={activePlayers} scores={scores} beamOffset={beamOffset} />
-    </div>
-  );
   
   return (
     <>
@@ -580,6 +440,37 @@ const App: React.FC = () => {
           onReadyToggle={handleReadyToggle}
           onStartDuel={startDuel}
           onLeaveLobby={() => {
+            leaveLobby();
+            setCurrentScreen('landing');
+          }}
+        />
+      ) : inDuel && duel ? (
+        <GamePage
+          duel={duel}
+          localPlayer={localPlayer}
+          countdown={countdown}
+          countdownValue={countdownValue}
+          prompt={prompt}
+          roundRecap={roundRecap}
+          scores={scores}
+          currentGuess={currentGuess}
+          hasSubmitted={hasSubmitted}
+          opponentSubmitted={opponentSubmitted ?? false}
+          opponent={opponent}
+          showResultsPending={showResultsPending}
+          onGuessChange={handleGuessChange}
+          onSubmitSpell={handleSubmitSpell}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              handleSubmitSpell();
+            }
+            if (event.key === 'Backspace' || event.key === 'Delete') {
+              event.preventDefault();
+            }
+          }}
+          inputRef={inputRef}
+          onLeaveDuel={() => {
             leaveLobby();
             setCurrentScreen('landing');
           }}
@@ -607,7 +498,6 @@ const App: React.FC = () => {
             )}
 
             {!lobby && renderEntry()}
-            {inDuel && renderDuel()}
 
           </div>
         </div>
