@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LandingPage from './pages/LandingPage';
+import LobbyPage from './pages/LobbyPage';
 import { useSocketConnection } from './hooks/useSocketConnection';
 import { useLobby } from './hooks/useLobby';
 import { RoundRecapCard } from './components/RoundRecapCard';
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   } = useLobby();
 
   const [playerName, setPlayerName] = useState('');
+  const [playerWizardId, setPlayerWizardId] = useState<string>('violet-warden');
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [currentScreen, setCurrentScreen] = useState<'landing' | 'game'>('landing');
   const [currentGuess, setCurrentGuess] = useState('');
@@ -59,23 +61,25 @@ const App: React.FC = () => {
   const [hostSettingsModalOpen, setHostSettingsModalOpen] = useState(false);
   const [hostSettings, setHostSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
 
-  const handleLandingHostGame = (nickname: string) => {
+  const handleLandingHostGame = (nickname: string, wizardId: string) => {
     const safeName =  nickname.trim() || 'WIZARD';
     setPlayerName(safeName);
+    setPlayerWizardId(wizardId);
   
     // open the existing host settings modal – same wiring as before
     handleOpenHostSettings();
   };
   
-  const handleLandingJoinGame = (nickname: string, joinCode: string) => {
+  const handleLandingJoinGame = (nickname: string, joinCode: string, wizardId: string) => {
     const safeName = nickname.trim() || 'WIZARD';
     const code = joinCode.trim().toUpperCase();
 
     setPlayerName(safeName);
+    setPlayerWizardId(wizardId);
     setRoomCodeInput(code);
 
     // use the existing joinLobby logic
-    joinLobby(code, safeName);
+    joinLobby(code, safeName, wizardId);
 
     // Don't switch screens immediately - wait for lobby state or error
     // The useEffect below will handle switching to 'game' when lobby is received
@@ -322,9 +326,6 @@ const App: React.FC = () => {
     }
   }, [lobby, currentScreen, clearError]);
 
-  const everyoneReady = lobby?.players.every((player) => player.ready) ?? false;
-  const canStartDuel = Boolean(lobby && lobby.phase === 'lobby' && localPlayer?.isHost && everyoneReady);
-  const readyLabel = localPlayer?.ready ? 'unready' : 'ready up';
   const inLobby = Boolean(lobby && lobby.phase === 'lobby');
   const inDuel = Boolean(lobby && lobby.phase === 'in-duel');
   const activePlayers = useMemo(() => duel?.players ?? lobby?.players ?? [], [duel, lobby]);
@@ -334,8 +335,8 @@ const App: React.FC = () => {
   const totalRounds = duel?.totalRounds ?? lobby?.settings?.rounds ?? 5;
   const beamOffset = duel?.beamOffset ?? 0;
 
-  const handleCreate = () => createLobby(playerName, hostSettings);
-  const handleJoin = () => joinLobby(roomCodeInput, playerName);
+  const handleCreate = () => createLobby(playerName, hostSettings, playerWizardId);
+  const handleJoin = () => joinLobby(roomCodeInput, playerName, playerWizardId);
   const handleReadyToggle = () => setReady(!localPlayer?.ready);
   const handleOpenHostSettings = () => {
     setHostSettings({ ...DEFAULT_SETTINGS });
@@ -492,90 +493,6 @@ const App: React.FC = () => {
     </div>
   );
 
-  const renderLobby = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-slate-400">room code</p>
-          <p className="text-2xl font-semibold tracking-widest">{lobby?.roomCode}</p>
-        </div>
-        <button
-          onClick={() => {
-            leaveLobby();
-            setCurrentScreen('landing');
-          }}
-          className="text-sm text-rose-300 hover:text-rose-200 underline underline-offset-2"
-        >
-          leave lobby
-        </button>
-      </div>
-
-      <div className="space-y-2">
-        {lobby?.players.map((player) => (
-          <div
-            key={player.id}
-            className="flex items-center justify-between rounded-lg border border-slate-700 px-3 py-2"
-          >
-            <div className="flex flex-col">
-              <span className="font-medium">
-                {player.name}{' '}
-                {player.isHost && (
-                  <span className="text-xs uppercase tracking-wide text-amber-300">(host)</span>
-                )}
-              </span>
-              {localPlayer?.id === player.id && (
-                <span className="text-xs text-slate-400">that&apos;s you</span>
-              )}
-            </div>
-            <span className={player.ready ? 'text-emerald-400' : 'text-slate-500'}>
-              {player.ready ? 'ready' : 'not ready'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {lobby?.settings && (
-        <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">configured spell rules</p>
-          <div className="text-sm text-slate-300 space-y-1">
-            <p>
-              <span className="text-slate-500">difficulty:</span> {lobby.settings.difficulty}
-            </p>
-            <p>
-              <span className="text-slate-500">rounds:</span> {lobby.settings.rounds}
-            </p>
-            <p>
-              <span className="text-slate-500">reading speed:</span> {lobby.settings.readingSpeed.toFixed(2)}x
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-3">
-        <button
-          onClick={handleReadyToggle}
-          disabled={!localPlayer}
-          className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {readyLabel}
-        </button>
-
-        {localPlayer?.isHost ? (
-          <button
-            onClick={startDuel}
-            disabled={!canStartDuel}
-            className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            start duel
-          </button>
-        ) : (
-          <p className="text-xs text-center text-slate-400">
-            waiting for the host to start once everyone is ready.
-          </p>
-        )}
-      </div>
-    </div>
-  );
 
   const renderDuel = () => (
     <div className="space-y-5">
@@ -656,6 +573,17 @@ const App: React.FC = () => {
           serverError={error}
           onClearError={clearError}
         />
+      ) : inLobby && lobby ? (
+        <LobbyPage
+          lobby={lobby}
+          localPlayer={localPlayer}
+          onReadyToggle={handleReadyToggle}
+          onStartDuel={startDuel}
+          onLeaveLobby={() => {
+            leaveLobby();
+            setCurrentScreen('landing');
+          }}
+        />
       ) : (
         <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8">
           <div className="w-full max-w-4xl bg-slate-800/70 border border-slate-700 rounded-3xl shadow-xl p-6 space-y-6 relative">
@@ -679,7 +607,6 @@ const App: React.FC = () => {
             )}
 
             {!lobby && renderEntry()}
-            {inLobby && renderLobby()}
             {inDuel && renderDuel()}
 
             {summary && (
