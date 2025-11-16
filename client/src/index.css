@@ -189,6 +189,30 @@
     transform: rotate(8deg) scaleY(1);
   }
 }
+
+@keyframes wizardHop {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes beamPulse {
+  0%,
+  100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
 /* stylelint-enable at-rule-no-unknown */
 .casting-input {
   color: transparent;
