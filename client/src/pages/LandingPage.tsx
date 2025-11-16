@@ -67,7 +67,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
   const [selectedWizardId, setSelectedWizardId] = useState(WIZARDS[0].id);
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
   const [isWizardModalOpen, setIsWizardModalOpen] = useState(false);
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
 
@@ -75,15 +74,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
     () => WIZARDS.find((wizard) => wizard.id === selectedWizardId) ?? WIZARDS[0],
     [selectedWizardId]
   );
-
-  useEffect(() => {
-    if (!statusMessage) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => setStatusMessage(''), 3200);
-    return () => window.clearTimeout(timer);
-  }, [statusMessage]);
 
   const handleNicknameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const sanitizedValue = event.target.value.toUpperCase().slice(0, 12);
@@ -103,7 +93,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
 
   const handleHostGame = () => {
     onHostGame(nickname, selectedWizardId);
-    setStatusMessage('Summoning your lobby soon...');
   };
 
   const handleJoinGame = () => {
@@ -113,7 +102,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
     }
 
     setJoinError('');
-    setStatusMessage('✨ Attempting to join the duel gate...');
     onJoinGame(nickname, joinCode, selectedWizardId);
   };
 
@@ -228,6 +216,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
                         id="join-code"
                         value={joinCode}
                         onChange={handleJoinCodeChange}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleJoinGame();
+                          }
+                        }}
                         maxLength={6}
                         placeholder="ABCD"
                         className="flex-1 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-center text-sm font-semibold tracking-[0.45em] text-white placeholder:text-slate-600 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
@@ -252,11 +246,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serve
                   </div>
                 </div>
 
-                {statusMessage && (
-                  <div className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 shadow-[0_10px_25px_rgba(16,185,129,0.25)]">
-                    {statusMessage}
-                  </div>
-                )}
               </div>
 
               <div className="flex items-center justify-end">
