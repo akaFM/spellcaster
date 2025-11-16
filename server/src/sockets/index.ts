@@ -5,17 +5,33 @@ import {
   InterServerEvents,
   SocketData,
   LobbyState,
-  DuelState,
+  GameSettings,
+  SpellDifficulty,
+  ReadingSpeed,
 } from '../../../shared/types/socket';
+import { DuelManager } from '../game/duelManager';
 
 const MAX_PLAYERS = 2;
 const ROOM_CODE_LENGTH = 4;
+const DEFAULT_SETTINGS: GameSettings = {
+  difficulty: 'medium',
+  rounds: 5,
+  readingSpeed: 1,
+};
+const VALID_ROUNDS: GameSettings['rounds'][] = [5, 10, 15];
+const VALID_DIFFICULTIES: SpellDifficulty[] = ['easy', 'medium', 'hard'];
+const VALID_SPEEDS: ReadingSpeed[] = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 const lobbies = new Map<string, LobbyState>();
 
 export function registerSocketHandlers(
   io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
 ) {
+  const duelManager = new DuelManager({
+    io,
+    lobbies,
+    onLobbyStateChange: (lobby) => broadcastLobbyState(io, lobby),
+  });
   // this gets called from index.ts whenever a socket connects
   io.on(
     'connection',
@@ -29,18 +45,21 @@ export function registerSocketHandlers(
         });
       });
 
-      socket.on('lobby:create', ({ playerName }) => {
+      socket.on('lobby:create', ({ playerName, settings }) => {
         const cleanName = sanitizeName(playerName);
         if (!cleanName) {
           return sendError(socket, 'please enter a name before creating a duel');
         }
 
-        leaveCurrentLobby(socket, io);
+        leaveCurrentLobby(socket, io, duelManager);
 
         const roomCode = generateRoomCode();
+        const lobbySettings = sanitizeSettings(settings ?? {}, DEFAULT_SETTINGS);
+
         const lobby: LobbyState = {
           roomCode,
           phase: 'lobby',
+          settings: lobbySettings,
           players: [
             {
               id: socket.id,
@@ -79,7 +98,7 @@ export function registerSocketHandlers(
           return sendError(socket, 'this duel already started');
         }
 
-        leaveCurrentLobby(socket, io);
+        leaveCurrentLobby(socket, io, duelManager);
 
         lobby.players.push({
           id: socket.id,
@@ -98,7 +117,7 @@ export function registerSocketHandlers(
 
       socket.on('lobby:leave', () => {
         const previousRoom = socket.data.roomCode;
-        leaveCurrentLobby(socket, io);
+        leaveCurrentLobby(socket, io, duelManager);
         if (previousRoom) {
           console.log(`player ${socket.id} left lobby ${previousRoom}`);
         }
@@ -119,6 +138,26 @@ export function registerSocketHandlers(
         }
 
         player.ready = ready;
+        broadcastLobbyState(io, lobby);
+      });
+
+      socket.on('lobby:updateSettings', ({ roomCode, settings }) => {
+        const lobby = lobbies.get(roomCode);
+        if (!lobby) {
+          return sendError(socket, 'lobby no longer exists');
+        }
+        if (lobby.phase !== 'lobby') {
+          return sendError(socket, 'cannot update settings during a duel');
+        }
+
+        const player = lobby.players.find((p) => p.id === socket.id);
+        if (!player || !player.isHost) {
+          return sendError(socket, 'only the host can update settings');
+        }
+
+        lobby.settings = sanitizeSettings(settings, lobby.settings);
+        lobby.players = lobby.players.map((p) => ({ ...p, ready: false }));
+
         broadcastLobbyState(io, lobby);
       });
 
@@ -147,20 +186,43 @@ export function registerSocketHandlers(
           ready: false,
         }));
 
-        const duelState: DuelState = {
-          roomCode,
-          round: 1,
-          startedAt: new Date().toISOString(),
-          players: lobby.players,
-        };
-
         console.log(`lobby ${roomCode} started a duel`);
         broadcastLobbyState(io, lobby);
-        io.to(roomCode).emit('duel:started', duelState);
+        duelManager.startDuel(lobby);
+      });
+
+      socket.on('duel:submitSpell', ({ roomCode, promptId, guess, durationMs }) => {
+        const code = normalizeRoomCode(roomCode || socket.data.roomCode || '');
+        if (!code) {
+          return sendError(socket, 'you are not in a duel');
+        }
+
+        const lobby = lobbies.get(code);
+        if (!lobby) {
+          return sendError(socket, 'lobby no longer exists');
+        }
+        if (lobby.phase !== 'in-duel') {
+          return sendError(socket, 'no duel in progress');
+        }
+
+        const participant = lobby.players.find((player) => player.id === socket.id);
+        if (!participant) {
+          return sendError(socket, 'you are not part of this duel');
+        }
+
+        const result = duelManager.handleSubmission(code, socket.id, {
+          promptId,
+          guess,
+          durationMs,
+        });
+
+        if (result) {
+          return sendError(socket, result);
+        }
       });
 
       socket.on('disconnect', (reason) => {
-        leaveCurrentLobby(socket, io);
+        leaveCurrentLobby(socket, io, duelManager);
         console.log(`client disconnected: ${socket.id} (${reason})`);
       });
     }
@@ -183,7 +245,8 @@ function sendError(
 
 function leaveCurrentLobby(
   socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
-  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>
+  io: SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>,
+  duelManager: DuelManager
 ) {
   const roomCode = socket.data.roomCode;
   if (!roomCode) {
@@ -199,7 +262,13 @@ function leaveCurrentLobby(
     return;
   }
 
+  const wasInDuel = lobby.phase === 'in-duel';
+
   lobby.players = lobby.players.filter((p) => p.id !== socket.id);
+
+  if (wasInDuel) {
+    duelManager.handlePlayerLeft(roomCode);
+  }
 
   if (lobby.players.length === 0) {
     lobbies.delete(roomCode);
@@ -221,6 +290,28 @@ function leaveCurrentLobby(
 
 function sanitizeName(name: string): string {
   return name?.trim().slice(0, 24);
+}
+
+function sanitizeSettings(partial: Partial<GameSettings>, current: GameSettings): GameSettings {
+  const difficulty: SpellDifficulty = VALID_DIFFICULTIES.includes(
+    partial?.difficulty as SpellDifficulty
+  )
+    ? (partial?.difficulty as SpellDifficulty)
+    : current.difficulty;
+
+  const rounds: GameSettings['rounds'] = VALID_ROUNDS.includes(partial?.rounds as GameSettings['rounds'])
+    ? (partial?.rounds as GameSettings['rounds'])
+    : current.rounds;
+
+  const readingSpeed: ReadingSpeed = VALID_SPEEDS.includes(partial?.readingSpeed as ReadingSpeed)
+    ? (partial?.readingSpeed as ReadingSpeed)
+    : current.readingSpeed;
+
+  return {
+    difficulty,
+    rounds,
+    readingSpeed,
+  };
 }
 
 function normalizeRoomCode(roomCode: string): string {

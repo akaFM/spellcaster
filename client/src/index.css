@@ -190,3 +190,50 @@
   }
 }
 /* stylelint-enable at-rule-no-unknown */
+.casting-input {
+  color: transparent;
+  caret-color: transparent;
+  text-shadow: none;
+}
+
+.casting-input::selection {
+  background: transparent;
+}
+
+.spellcaster-keyboard {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.spellcaster-keyboard .hg-row {
+  margin: 4px 0;
+}
+
+.spellcaster-keyboard .hg-button {
+  @apply bg-slate-800/80 border border-slate-700 text-slate-100 font-semibold;
+  min-width: 36px;
+  min-height: 42px;
+  box-shadow: none;
+  text-transform: uppercase;
+}
+
+.spellcaster-keyboard .hg-button:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+.spellcaster-keyboard .hg-keyboard {
+  background: transparent;
+}
+
+.sr-only-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

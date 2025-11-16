@@ -21,11 +21,23 @@ phase 1 gave us the scaffolding, phase 2 proved sockets. phase 3 is the first re
 cd server
 npm install
 cp .env.example .env
-# edit .env if you want to change the port or allowed client origins (comma-separated)
+# edit .env to configure ports, allowed client origins, and api keys
 npm run dev
 ```
 
 this starts the express + socket.io server on `http://localhost:4000` by default. out of the box we allow both `http://localhost:5173` and `http://127.0.0.1:5173`, so you can use whichever url vite serves without editing env vars.
+
+#### elevenlabs tts
+
+to enable the wizard voice, add the following to `server/.env` (the `.env` file that lives next to `package.json` inside the `server` folder):
+
+```
+ELEVENLABS_API_KEY=your_api_key_here
+# optional – defaults to zNsotODqUhvbJ5wMG7Ei
+ELEVENLABS_VOICE_ID=zNsotODqUhvbJ5wMG7Ei
+```
+
+keep the api key private—it's only ever referenced on the server. the client simply calls the `/tts` endpoint you run locally, so nothing sensitive ends up in the browser bundle.
 
 quick checks:
 

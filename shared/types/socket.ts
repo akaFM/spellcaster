@@ -1,5 +1,14 @@
 export type LobbyPhase = 'lobby' | 'in-duel';
 
+export type SpellDifficulty = 'easy' | 'medium' | 'hard';
+export type ReadingSpeed = 0.5 | 0.75 | 1 | 1.25 | 1.5 | 2;
+
+export interface GameSettings {
+  difficulty: SpellDifficulty;
+  rounds: 5 | 10 | 15;
+  readingSpeed: ReadingSpeed;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -11,13 +20,79 @@ export interface LobbyState {
   roomCode: string;
   phase: LobbyPhase;
   players: Player[];
+  settings: GameSettings;
 }
 
 export interface DuelState {
   roomCode: string;
   round: number;
+  totalRounds: number;
   startedAt: string;
   players: Player[];
+  settings: GameSettings;
+  beamOffset: number;
+}
+
+export interface CountdownPayload {
+  roundNumber: number;
+  totalRounds: number;
+  seconds: number;
+  spellText: string;
+  readingSpeed: ReadingSpeed;
+}
+
+export interface SpellPromptPayload {
+  roundNumber: number;
+  totalRounds: number;
+  promptId: string;
+  spellText: string;
+  readingSpeed: ReadingSpeed;
+  startedAt: string;
+}
+
+export interface PlayerRoundResult {
+  playerId: string;
+  playerName: string;
+  guess: string;
+  accuracy: number;
+  baseScore: number;
+  bonusScore: number;
+  totalScore: number;
+  durationMs: number;
+  cumulativeScore: number;
+}
+
+export interface RoundRecapPayload {
+  roomCode: string;
+  roundNumber: number;
+  totalRounds: number;
+  spell: string;
+  playerResults: PlayerRoundResult[];
+  winningPlayerId: string | null;
+  beamOffset: number;
+}
+
+export interface PlayerSummary {
+  playerId: string;
+  playerName: string;
+  averageAccuracy: number;
+  averageDurationMs: number;
+  totalScore: number;
+}
+
+export interface GameSummary {
+  roomCode: string;
+  winnerId: string | null;
+  winnerName: string | null;
+  reason: 'beam' | 'rounds' | 'forfeit';
+  rounds: RoundRecapPayload[];
+  players: PlayerSummary[];
+}
+
+export interface PlayerSubmissionPayload {
+  roomCode: string;
+  roundNumber: number;
+  playerId: string;
 }
 
 export interface ServerErrorPayload {
@@ -28,11 +103,18 @@ export interface ServerErrorPayload {
 export interface ClientToServerEvents {
   // simple ping event for testing round-trip
   ping: () => void;
-  'lobby:create': (payload: { playerName: string }) => void;
+  'lobby:create': (payload: { playerName: string; settings?: Partial<GameSettings> }) => void;
   'lobby:join': (payload: { roomCode: string; playerName: string }) => void;
   'lobby:leave': () => void;
   'lobby:setReady': (payload: { roomCode: string; ready: boolean }) => void;
+  'lobby:updateSettings': (payload: { roomCode: string; settings: Partial<GameSettings> }) => void;
   'lobby:startDuel': (payload: { roomCode: string }) => void;
+  'duel:submitSpell': (payload: {
+    roomCode: string;
+    promptId: string;
+    guess: string;
+    durationMs: number;
+  }) => void;
 }
 
 // types that describe the events server can send to client
@@ -41,6 +123,11 @@ export interface ServerToClientEvents {
   pong: (data: { timestamp: string }) => void;
   'lobby:state': (state: LobbyState) => void;
   'duel:started': (state: DuelState) => void;
+  'duel:countdown': (payload: CountdownPayload) => void;
+  'duel:prompt': (payload: SpellPromptPayload) => void;
+  'duel:roundRecap': (payload: RoundRecapPayload) => void;
+  'duel:playerSubmitted': (payload: PlayerSubmissionPayload) => void;
+  'duel:completed': (payload: GameSummary) => void;
   error: (payload: ServerErrorPayload) => void;
 }
 

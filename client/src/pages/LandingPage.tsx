@@ -55,7 +55,14 @@ const WIZARDS: Wizard[] = [
   },
 ];
 
-const LandingPage = () => {
+type LandingPageProps = {
+  onHostGame: (nickname: string) => void;
+  onJoinGame: (nickname: string, joinCode: string) => void;
+  serverError?: string | null;
+  onClearError?: () => void;
+};
+
+const LandingPage: React.FC<LandingPageProps> = ({ onHostGame, onJoinGame, serverError, onClearError }) => {
   const [nickname, setNickname] = useState('WIZARD');
   const [selectedWizardId, setSelectedWizardId] = useState(WIZARDS[0].id);
   const [joinCode, setJoinCode] = useState('');
@@ -89,22 +96,25 @@ const LandingPage = () => {
     if (joinError) {
       setJoinError('');
     }
+    if (serverError && onClearError) {
+      onClearError();
+    }
   };
 
   const handleHostGame = () => {
-    console.log('Host Game Clicked', { nickname, selectedWizardId });
+    onHostGame(nickname);
     setStatusMessage('Summoning your lobby soon...');
   };
 
   const handleJoinGame = () => {
-    if (joinCode.length < 5) {
+    if (joinCode.length < 4) {
       setJoinError('Please enter a valid code.');
       return;
     }
 
-    console.log('Join Game Clicked', { nickname, selectedWizardId, joinCode });
     setJoinError('');
     setStatusMessage('✨ Attempting to join the duel gate...');
+    onJoinGame(nickname, joinCode);
   };
 
   return (
@@ -219,7 +229,7 @@ const LandingPage = () => {
                         value={joinCode}
                         onChange={handleJoinCodeChange}
                         maxLength={6}
-                        placeholder="ABCDE"
+                        placeholder="ABCD"
                         className="flex-1 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-center text-sm font-semibold tracking-[0.45em] text-white placeholder:text-slate-600 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/60"
                       />
                       <button
@@ -232,9 +242,11 @@ const LandingPage = () => {
                     </div>
                     {joinError ? (
                       <p className="text-sm text-rose-300">{joinError}</p>
+                    ) : serverError ? (
+                      <p className="text-sm text-rose-300">{serverError}</p>
                     ) : (
                       <p className="text-xs text-slate-400">
-                        Enter the 5-letter code your friend shares with you.
+                        Enter the 4-letter code your friend shares with you.
                       </p>
                     )}
                   </div>
