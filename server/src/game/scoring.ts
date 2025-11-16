@@ -3,10 +3,10 @@ interface AccuracyResult {
   baseScore: number;
 }
 
-const MAX_BASE_SCORE = 100;
-const MAX_BONUS_SCORE = 50;
+const MAX_BASE_SCORE = 120;
+const MAX_BONUS_SCORE = 20;
 const BONUS_FULL_MS = 3000;
-const BONUS_ZERO_MS = 10000;
+const BONUS_ZERO_MS = 7000;
 
 export function levenshteinDistance(a: string, b: string): number {
   const source = a.toUpperCase();
