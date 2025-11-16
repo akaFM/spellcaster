@@ -133,6 +133,15 @@ export class DuelManager {
     const sanitizedGuess = payload.guess.toUpperCase().slice(0, 64);
     const durationMs = Math.max(0, Math.min(payload.durationMs, 60000));
 
+    // Log submission for debugging
+    console.log(`[DUEL ${roomCode}] Player ${playerId} submitted for round ${round.roundNumber}:`, {
+      promptId: round.promptId,
+      receivedPromptId: payload.promptId,
+      guess: sanitizedGuess,
+      guessLength: sanitizedGuess.length,
+      durationMs,
+    });
+
     round.submissions[playerId] = {
       playerId,
       guess: sanitizedGuess,
@@ -166,7 +175,12 @@ export class DuelManager {
       return;
     }
 
-    this.completeDuel(duel, 'forfeit');
+    // For forfeit, find the player who is still in the lobby
+    const lobby = this.deps.lobbies.get(roomCode);
+    const remainingPlayerIds = lobby?.players.map(p => p.id) ?? [];
+    const remainingPlayer = duel.players.find(p => remainingPlayerIds.includes(p.id));
+
+    this.completeDuel(duel, 'forfeit', remainingPlayer?.id ?? null);
   }
 
   private queueCountdown(duel: ActiveDuel) {
@@ -347,14 +361,22 @@ export class DuelManager {
     }, BETWEEN_ROUND_DELAY_MS);
   }
 
-  private completeDuel(duel: ActiveDuel, reason: GameSummary['reason']) {
+  private completeDuel(duel: ActiveDuel, reason: GameSummary['reason'], forfeitWinnerId: string | null = null) {
     this.clearCountdown(duel);
     this.clearBetweenRound(duel);
 
-    const standings = [...duel.players].sort(
-      (a, b) => (duel.totalScores[b.id] ?? 0) - (duel.totalScores[a.id] ?? 0)
-    );
-    const winner = standings[0];
+    let winner: Player | null = null;
+    
+    if (reason === 'forfeit' && forfeitWinnerId) {
+      // For forfeit, the remaining player wins regardless of score
+      winner = duel.players.find(p => p.id === forfeitWinnerId) ?? null;
+    } else {
+      // For other reasons (beam, rounds), determine winner by score
+      const standings = [...duel.players].sort(
+        (a, b) => (duel.totalScores[b.id] ?? 0) - (duel.totalScores[a.id] ?? 0)
+      );
+      winner = standings[0];
+    }
 
     const summary: GameSummary = {
       roomCode: duel.roomCode,
