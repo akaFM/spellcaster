@@ -45,7 +45,7 @@ export function registerSocketHandlers(
         });
       });
 
-      socket.on('lobby:create', ({ playerName, settings }) => {
+      socket.on('lobby:create', ({ playerName, settings, wizardId }) => {
         const cleanName = sanitizeName(playerName);
         if (!cleanName) {
           return sendError(socket, 'please enter a name before creating a duel');
@@ -66,6 +66,7 @@ export function registerSocketHandlers(
               name: cleanName,
               isHost: true,
               ready: false,
+              wizardId,
             },
           ],
         };
@@ -79,7 +80,7 @@ export function registerSocketHandlers(
         broadcastLobbyState(io, lobby);
       });
 
-      socket.on('lobby:join', ({ roomCode, playerName }) => {
+      socket.on('lobby:join', ({ roomCode, playerName, wizardId }) => {
         const code = normalizeRoomCode(roomCode);
         const cleanName = sanitizeName(playerName);
 
@@ -105,6 +106,7 @@ export function registerSocketHandlers(
           name: cleanName,
           isHost: false,
           ready: false,
+          wizardId,
         });
 
         socket.join(code);
