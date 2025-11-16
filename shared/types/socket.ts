@@ -14,6 +14,7 @@ export interface Player {
   name: string;
   isHost: boolean;
   ready: boolean;
+  wizardId?: string;
 }
 
 export interface LobbyState {
@@ -103,8 +104,8 @@ export interface ServerErrorPayload {
 export interface ClientToServerEvents {
   // simple ping event for testing round-trip
   ping: () => void;
-  'lobby:create': (payload: { playerName: string; settings?: Partial<GameSettings> }) => void;
-  'lobby:join': (payload: { roomCode: string; playerName: string }) => void;
+  'lobby:create': (payload: { playerName: string; settings?: Partial<GameSettings>; wizardId?: string }) => void;
+  'lobby:join': (payload: { roomCode: string; playerName: string; wizardId?: string }) => void;
   'lobby:leave': () => void;
   'lobby:setReady': (payload: { roomCode: string; ready: boolean }) => void;
   'lobby:updateSettings': (payload: { roomCode: string; settings: Partial<GameSettings> }) => void;
