@@ -609,14 +609,6 @@ const App: React.FC = () => {
             {!lobby && renderEntry()}
             {inDuel && renderDuel()}
 
-            {summary && (
-              <GameSummaryCard
-                summary={summary}
-                players={lobby?.players ?? activePlayers}
-                localPlayerId={localPlayer?.id ?? null}
-                onClose={resetSummary}
-              />
-            )}
           </div>
         </div>
       )}
@@ -630,6 +622,15 @@ const App: React.FC = () => {
         onConfirm={handleConfirmHostSettings}
         confirmDisabled={status !== 'connected'}
       />
+
+      {summary && (
+        <GameSummaryCard
+          summary={summary}
+          players={activePlayers}
+          localPlayerId={localPlayer?.id ?? null}
+          onClose={resetSummary}
+        />
+      )}
     </>
   );
 

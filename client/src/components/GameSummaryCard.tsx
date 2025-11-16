@@ -13,6 +13,12 @@ export function GameSummaryCard({ summary, players, localPlayerId, onClose }: Ga
   const localRole = localPlayer?.isHost ? 'defending' : 'challenging';
   const opponentRole = localRole === 'defending' ? 'challenging' : 'defending';
   const heroSummary = summary.players.find((player) => player.playerId === localPlayerId);
+  const reasonLabelMap: Record<GameSummary['reason'], string> = {
+    beam: 'Beam overwhelm',
+    rounds: 'All rounds complete',
+    forfeit: 'Victory by forfeit',
+  };
+  const reasonLabel = reasonLabelMap[summary.reason] ?? summary.reason;
 
   const bannerGradient = didWin
     ? 'from-emerald-400/80 via-emerald-500/70 to-cyan-400/60'
@@ -58,9 +64,7 @@ export function GameSummaryCard({ summary, players, localPlayerId, onClose }: Ga
               <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Battle Scroll</p>
               <p className="text-xs text-slate-400">
                 Reason:&nbsp;
-                <span className="font-semibold text-slate-100">
-                  {summary.reason === 'beam' ? 'Beam overwhelm' : summary.reason}
-                </span>
+                <span className="font-semibold text-slate-100">{reasonLabel}</span>
               </p>
             </div>
             <div className="max-h-72 overflow-y-auto rounded-2xl border border-white/5 bg-slate-950/50">
