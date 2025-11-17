@@ -30,7 +30,10 @@ const WizardAvatarSelectorModal: FC<WizardAvatarSelectorModalProps> = ({
             <button
               key={wizard.id}
               type="button"
-              onClick={() => onSelect(wizard.id)}
+              onClick={() => {
+                onSelect(wizard.id);
+                onClose();
+              }}
               className={`group flex items-center gap-4 rounded-2xl border bg-white/5 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 ${
                 isSelected
                   ? 'border-emerald-400/80 shadow-[0_0_25px_rgba(16,185,129,0.35)]'
