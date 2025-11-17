@@ -152,7 +152,15 @@ export function GameSettingsControls({ settings, disabled, onChange }: GameSetti
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.4em] text-slate-300 mb-3">spell difficulty</p>
+        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.4em] text-slate-300 mb-3">
+          <p>spell difficulty</p>
+          <span className="group relative inline-flex cursor-default text-[0.75rem] font-semibold text-slate-200">
+            ?
+            <span className="pointer-events-none absolute left-full top-0 z-10 ml-2.5 mt-2 w-80 max-w-[70vw] -translate-y-full rounded-lg border border-slate-700 bg-slate-900/95 p-2 text-[10px] font-normal leading-snug text-slate-100 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              How hard the spells are to spell. Pun intended.
+            </span>
+          </span>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
