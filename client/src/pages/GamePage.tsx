@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import Logo from '../components/Logo';
 import { RoundRecapCard } from '../components/RoundRecapCard';
 import { CountdownDisplay } from '../components/CountdownDisplay';
@@ -13,7 +12,6 @@ interface GamePageProps {
   countdownValue: number | null;
   prompt: SpellPromptPayload | null;
   roundRecap: RoundRecapPayload | null;
-  scores: Record<string, number>;
   currentGuess: string;
   hasSubmitted: boolean;
   opponentSubmitted: boolean;
@@ -33,7 +31,6 @@ const GamePage: React.FC<GamePageProps> = ({
   countdownValue,
   prompt,
   roundRecap,
-  scores,
   currentGuess,
   hasSubmitted,
   opponentSubmitted,
@@ -200,7 +197,6 @@ const GamePage: React.FC<GamePageProps> = ({
           <div className="mt-auto pt-2">
             <WizardBeam
               players={duel.players}
-              scores={scores}
               beamOffset={duel.beamOffset}
               roundRecap={roundRecap}
               localPlayerId={localPlayer?.id ?? null}

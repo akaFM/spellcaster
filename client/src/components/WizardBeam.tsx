@@ -55,7 +55,6 @@ const WIZARDS: Wizard[] = [
 
 interface WizardBeamProps {
   players: Player[];
-  scores: Record<string, number>;
   beamOffset?: number;
   roundRecap?: RoundRecapPayload | null;
   localPlayerId?: string | null;
@@ -63,7 +62,7 @@ interface WizardBeamProps {
 
 const BEAM_RANGE = 100;
 
-export function WizardBeam({ players, scores, beamOffset = 0, roundRecap, localPlayerId }: WizardBeamProps) {
+export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId }: WizardBeamProps) {
   // Ensure we have both players, with host on left
   const hostPlayer = players.find(p => p.isHost);
   const nonHostPlayer = players.find(p => !p.isHost);

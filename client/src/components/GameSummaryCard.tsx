@@ -20,10 +20,6 @@ export function GameSummaryCard({ summary, players, localPlayerId, onClose }: Ga
   };
   const reasonLabel = reasonLabelMap[summary.reason] ?? summary.reason;
 
-  const bannerGradient = didWin
-    ? 'from-emerald-400/80 via-emerald-500/70 to-cyan-400/60'
-    : 'from-rose-600/80 via-rose-700/60 to-fuchsia-600/50';
-
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
       <div className="relative w-full max-w-4xl overflow-hidden rounded-[32px] border border-white/10 bg-slate-950/70 p-6 shadow-[0_25px_65px_rgba(4,0,24,0.85)]">
