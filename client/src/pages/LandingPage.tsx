@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Logo from '../components/Logo';
 import WizardAvatarSelectorModal from '../components/WizardAvatarSelectorModal';
 import HowToPlayModal from '../components/HowToPlayModal';

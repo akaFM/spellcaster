@@ -24,7 +24,6 @@ const App: React.FC = () => {
     prompt,
     roundRecap,
     summary,
-    scores,
     roundSubmissions,
     error,
     localPlayer,
@@ -569,7 +568,6 @@ const App: React.FC = () => {
           countdownValue={countdownValue}
           prompt={prompt}
           roundRecap={roundRecap}
-          scores={scores}
           currentGuess={currentGuess}
           hasSubmitted={hasSubmitted}
           opponentSubmitted={opponentSubmitted ?? false}
