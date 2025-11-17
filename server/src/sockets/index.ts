@@ -19,8 +19,10 @@ const DEFAULT_SETTINGS: GameSettings = {
   readingSpeed: 1,
 };
 const VALID_ROUNDS: GameSettings['rounds'][] = [5, 10, 15];
-const VALID_DIFFICULTIES: SpellDifficulty[] = ['easy', 'medium', 'hard'];
+const VALID_DIFFICULTIES: SpellDifficulty[] = ['easy', 'medium', 'hard', 'custom'];
 const VALID_SPEEDS: ReadingSpeed[] = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const MAX_CUSTOM_WORDS = 400;
+const MAX_CUSTOM_WORD_LENGTH = 64;
 
 const lobbies = new Map<string, LobbyState>();
 
@@ -305,12 +307,7 @@ function sanitizeName(name: string): string {
 }
 
 function sanitizeSettings(partial: Partial<GameSettings>, current: GameSettings): GameSettings {
-  const difficulty: SpellDifficulty = VALID_DIFFICULTIES.includes(
-    partial?.difficulty as SpellDifficulty
-  )
-    ? (partial?.difficulty as SpellDifficulty)
-    : current.difficulty;
-
+  const requestedDifficulty = partial?.difficulty as SpellDifficulty | undefined;
   const rounds: GameSettings['rounds'] = VALID_ROUNDS.includes(partial?.rounds as GameSettings['rounds'])
     ? (partial?.rounds as GameSettings['rounds'])
     : current.rounds;
@@ -319,11 +316,61 @@ function sanitizeSettings(partial: Partial<GameSettings>, current: GameSettings)
     ? (partial?.readingSpeed as ReadingSpeed)
     : current.readingSpeed;
 
+  const providedWords =
+    Array.isArray(partial?.customWords) && partial.customWords.length > 0
+      ? sanitizeCustomWords(partial.customWords)
+      : current.customWords;
+
+  const providedSourceName =
+    typeof partial?.customWordSourceName === 'string'
+      ? partial.customWordSourceName.slice(0, 64)
+      : current.customWordSourceName;
+
+  const wantsCustom = requestedDifficulty === 'custom' || (!requestedDifficulty && current.difficulty === 'custom');
+  const hasValidCustomWords = Boolean(providedWords && providedWords.length > 0);
+
+  let difficulty: SpellDifficulty = current.difficulty;
+  if (wantsCustom && hasValidCustomWords) {
+    difficulty = 'custom';
+  } else if (requestedDifficulty && requestedDifficulty !== 'custom' && VALID_DIFFICULTIES.includes(requestedDifficulty)) {
+    difficulty = requestedDifficulty;
+  } else if (difficulty === 'custom' && !hasValidCustomWords) {
+    difficulty = DEFAULT_SETTINGS.difficulty;
+  }
+
   return {
     difficulty,
     rounds,
     readingSpeed,
+    customWords: difficulty === 'custom' ? providedWords : undefined,
+    customWordSourceName: difficulty === 'custom' ? providedSourceName : undefined,
   };
+}
+
+function sanitizeCustomWords(words: string[]): string[] {
+  const unique = new Set<string>();
+  const cleaned: string[] = [];
+
+  for (const raw of words) {
+    if (typeof raw !== 'string') {
+      continue;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const normalized = trimmed.slice(0, MAX_CUSTOM_WORD_LENGTH).toUpperCase();
+    if (unique.has(normalized)) {
+      continue;
+    }
+    unique.add(normalized);
+    cleaned.push(normalized);
+    if (cleaned.length >= MAX_CUSTOM_WORDS) {
+      break;
+    }
+  }
+
+  return cleaned;
 }
 
 function normalizeRoomCode(roomCode: string): string {

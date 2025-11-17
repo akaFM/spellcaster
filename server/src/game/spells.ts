@@ -7,7 +7,8 @@ export interface SpellDefinition {
   difficulty: SpellDifficulty;
 }
 
-type SpellDictionary = Record<SpellDifficulty, SpellDefinition[]>;
+type CatalogDifficulty = Exclude<SpellDifficulty, 'custom'>;
+type SpellDictionary = Record<CatalogDifficulty, SpellDefinition[]>;
 
 const createSpellList = (difficulty: SpellDifficulty, incantations: string[]): SpellDefinition[] =>
   incantations.map((text, index) => ({
@@ -16,7 +17,7 @@ const createSpellList = (difficulty: SpellDifficulty, incantations: string[]): S
     difficulty,
   }));
 
-const spellWords = spellCatalog as Record<SpellDifficulty, string[]>;
+const spellWords = spellCatalog as Record<CatalogDifficulty, string[]>;
 
 const spellData: SpellDictionary = {
   easy: createSpellList('easy', spellWords.easy),
@@ -24,12 +25,20 @@ const spellData: SpellDictionary = {
   hard: createSpellList('hard', spellWords.hard),
 };
 
-export function getSpellPool(difficulty: SpellDifficulty): SpellDefinition[] {
+export function getSpellPool(difficulty: SpellDifficulty, customWords?: string[]): SpellDefinition[] {
+  if (difficulty === 'custom') {
+    return createSpellList('custom', customWords ?? []);
+  }
   return spellData[difficulty];
 }
 
-export function buildSpellQueue(rounds: number, difficulty: SpellDifficulty): SpellDefinition[] {
-  const pool = [...getSpellPool(difficulty)];
+export function buildSpellQueue(
+  rounds: number,
+  difficulty: SpellDifficulty,
+  customWords?: string[]
+): SpellDefinition[] {
+  const sourcePool = getSpellPool(difficulty, customWords);
+  const pool = sourcePool.length > 0 ? [...sourcePool] : [...getSpellPool('medium')];
   const queue: SpellDefinition[] = [];
 
   for (let i = pool.length - 1; i > 0; i -= 1) {

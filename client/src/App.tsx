@@ -56,8 +56,18 @@ const App: React.FC = () => {
   const audioFetchControllerRef = useRef<AbortController | null>(null);
   const victorySfxRef = useRef<HTMLAudioElement | null>(null);
   const lossSfxRef = useRef<HTMLAudioElement | null>(null);
+  const browserSpeechRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [hostSettingsModalOpen, setHostSettingsModalOpen] = useState(false);
   const [hostSettings, setHostSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
+  const shouldUseBrowserTts = useMemo(() => {
+    if (duel?.settings.difficulty === 'custom') {
+      return true;
+    }
+    if (!duel && lobby?.settings.difficulty === 'custom') {
+      return true;
+    }
+    return false;
+  }, [duel, lobby]);
 
   const handleLandingHostGame = (nickname: string, wizardId: string) => {
     const safeName =  nickname.trim() || 'WIZARD';
@@ -93,6 +103,14 @@ const App: React.FC = () => {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
+  }, []);
+  const stopBrowserSpeech = useCallback(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      browserSpeechRef.current = null;
+      return;
+    }
+    window.speechSynthesis.cancel();
+    browserSpeechRef.current = null;
   }, []);
   const playSpellCastSfx = useCallback(() => {
     const randomTrack = Math.random() < 0.5 ? '/audio/spell1.wav' : '/audio/spell2.mp3';
@@ -159,6 +177,29 @@ const App: React.FC = () => {
       pendingAudioRef.current = null;
     }
   }, []);
+  const speakWithBrowserTts = useCallback(
+    (text: string, readingSpeed: number) => {
+      if (!text) {
+        return;
+      }
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        console.warn('browser tts is not available in this environment');
+        return;
+      }
+      stopBrowserSpeech();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = Math.min(2, Math.max(0.5, readingSpeed));
+      utterance.pitch = 1;
+      utterance.onend = () => {
+        if (browserSpeechRef.current === utterance) {
+          browserSpeechRef.current = null;
+        }
+      };
+      browserSpeechRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    },
+    [stopBrowserSpeech]
+  );
 
   const playAudioFromUrl = useCallback(
     async (url: string) => {
@@ -187,6 +228,12 @@ const App: React.FC = () => {
   const preloadSpellAudio = useCallback(
     async (roundNumber: number, text: string, readingSpeed: number) => {
       if (!text || !roundNumber) {
+        return;
+      }
+
+      if (shouldUseBrowserTts) {
+        audioFetchControllerRef.current?.abort();
+        cleanupPendingAudio();
         return;
       }
 
@@ -229,7 +276,7 @@ const App: React.FC = () => {
         console.error('spell audio preload failed', error);
       }
     },
-    [cleanupPendingAudio]
+    [cleanupPendingAudio, shouldUseBrowserTts]
   );
 
   useEffect(() => {
@@ -247,6 +294,7 @@ const App: React.FC = () => {
       promptReadyRef.current = false;
       cleanupAudio();
       cleanupPendingAudio();
+      stopBrowserSpeech();
       return;
     }
     
@@ -287,15 +335,24 @@ const App: React.FC = () => {
         }
       }, 200);
     });
-  }, [prompt, cleanupAudio, cleanupPendingAudio]);
+  }, [prompt, cleanupAudio, cleanupPendingAudio, stopBrowserSpeech]);
 
   useEffect(() => {
     if (!prompt) {
       cleanupAudio();
+      stopBrowserSpeech();
       return;
     }
 
     let cancelled = false;
+
+    if (shouldUseBrowserTts) {
+      speakWithBrowserTts(prompt.spellText, prompt.readingSpeed);
+      return () => {
+        cancelled = true;
+        stopBrowserSpeech();
+      };
+    }
 
     const ensureAudio = async () => {
       if (
@@ -329,15 +386,24 @@ const App: React.FC = () => {
       cancelled = true;
       cleanupAudio();
     };
-  }, [prompt, preloadSpellAudio, playAudioFromUrl, cleanupAudio]);
+  }, [
+    prompt,
+    preloadSpellAudio,
+    playAudioFromUrl,
+    cleanupAudio,
+    shouldUseBrowserTts,
+    speakWithBrowserTts,
+    stopBrowserSpeech,
+  ]);
 
   useEffect(
     () => () => {
       audioFetchControllerRef.current?.abort();
       cleanupPendingAudio();
       cleanupAudio();
+      stopBrowserSpeech();
     },
-    [cleanupAudio, cleanupPendingAudio]
+    [cleanupAudio, cleanupPendingAudio, stopBrowserSpeech]
   );
 
   useEffect(() => {
@@ -362,6 +428,9 @@ const App: React.FC = () => {
   const inLobby = Boolean(lobby && lobby.phase === 'lobby');
   const inDuel = Boolean(lobby && lobby.phase === 'in-duel');
   const activePlayers = useMemo(() => duel?.players ?? lobby?.players ?? [], [duel, lobby]);
+  const hostSettingsReadyForConfirm =
+    status === 'connected' &&
+    (hostSettings.difficulty !== 'custom' || (hostSettings.customWords?.length ?? 0) > 0);
 
   const currentRoundNumber =
     countdown?.roundNumber ?? prompt?.roundNumber ?? roundRecap?.roundNumber ?? duel?.round ?? 1;
@@ -626,7 +695,7 @@ const App: React.FC = () => {
         onChange={handleHostSettingsChange}
         onCancel={() => setHostSettingsModalOpen(false)}
         onConfirm={handleConfirmHostSettings}
-        confirmDisabled={status !== 'connected'}
+        confirmDisabled={!hostSettingsReadyForConfirm}
       />
 
       {summary && (

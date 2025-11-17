@@ -68,7 +68,11 @@ export class DuelManager {
   constructor(private readonly deps: DuelManagerDeps) {}
 
   startDuel(lobby: LobbyState) {
-    const spellQueue = buildSpellQueue(lobby.settings.rounds, lobby.settings.difficulty);
+    const spellQueue = buildSpellQueue(
+      lobby.settings.rounds,
+      lobby.settings.difficulty,
+      lobby.settings.customWords
+    );
 
     const duel: ActiveDuel = {
       roomCode: lobby.roomCode,
@@ -371,6 +375,7 @@ export class DuelManager {
   private completeDuel(duel: ActiveDuel, reason: GameSummary['reason'], forfeitWinnerId: string | null = null) {
     this.clearCountdown(duel);
     this.clearBetweenRound(duel);
+    this.clearActiveRound(duel);
 
     let winner: Player | null = null;
     
@@ -446,6 +451,25 @@ export class DuelManager {
       clearTimeout(duel.betweenRoundHandle);
       duel.betweenRoundHandle = undefined;
     }
+  }
+
+  private clearActiveRound(duel: ActiveDuel) {
+    const round = duel.roundInFlight;
+    if (!round) {
+      return;
+    }
+
+    if (round.timeoutHandle) {
+      clearTimeout(round.timeoutHandle);
+      round.timeoutHandle = undefined;
+    }
+
+    if (round.recapHandle) {
+      clearTimeout(round.recapHandle);
+      round.recapHandle = undefined;
+    }
+
+    duel.roundInFlight = undefined;
   }
 }
 

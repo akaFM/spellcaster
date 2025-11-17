@@ -235,6 +235,11 @@ const LobbyPage: React.FC<LobbyPageProps> = ({
                       <p className="font-incantation text-lg text-white">
                         {formatDifficulty(lobby.settings.difficulty)}
                       </p>
+                      {lobby.settings.difficulty === 'custom' && (
+                        <p className="text-[11px] text-slate-400">
+                          {(lobby.settings.customWords?.length ?? 0)} words loaded
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Rounds</p>
