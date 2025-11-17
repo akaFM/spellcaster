@@ -86,8 +86,8 @@ export function GameSettingsControls({ settings, disabled, onChange }: GameSetti
     const lowerName = file.name.toLowerCase();
     const isCsvLike =
       lowerName.endsWith('.csv') ||
-      file.type.includes('csv') ||
-      file.type.startsWith('text/');
+      file.type === 'text/csv' ||
+      file.type === 'application/vnd.ms-excel';
 
     if (!isCsvLike) {
       setUploadError('only csv files are allowed right now');
@@ -218,13 +218,18 @@ export function GameSettingsControls({ settings, disabled, onChange }: GameSetti
               </div>
               <div className="flex flex-col gap-1 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
                 <p>max {MAX_CUSTOM_WORDS} entries · duplicates removed · keep files under 150kb</p>
-                {hasCustomWords && (
-                  <p className="text-emerald-300">
-                    ✓ {customFilename}
+                {uploadError ? (
+                  <p className="text-rose-300">
+                    ✕ Not a .csv!
                   </p>
+                ) : (
+                  hasCustomWords && (
+                    <p className="text-emerald-300">
+                      ✓ {customFilename}
+                    </p>
+                  )
                 )}
               </div>
-              {uploadError && <p className="text-xs text-rose-300">{uploadError}</p>}
             </div>
           </div>
         </div>
