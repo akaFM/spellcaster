@@ -1,12 +1,14 @@
 export type LobbyPhase = 'lobby' | 'in-duel';
 
-export type SpellDifficulty = 'easy' | 'medium' | 'hard';
+export type SpellDifficulty = 'easy' | 'medium' | 'hard' | 'custom';
 export type ReadingSpeed = 0.5 | 0.75 | 1 | 1.25 | 1.5 | 2;
 
 export interface GameSettings {
   difficulty: SpellDifficulty;
   rounds: 5 | 10 | 15;
   readingSpeed: ReadingSpeed;
+  customWords?: string[];
+  customWordSourceName?: string;
 }
 
 export interface Player {
