@@ -1,0 +1,44 @@
+name: spellcaster ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      
+      # checkout repo
+      - name: checkout repo
+        uses: actions/checkout@v4
+
+      # installing node
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # might change
+          cache: 'npm'
+
+      # client side build
+
+      - name: install client deps
+        working-directory: client
+        run: npm ci
+
+      - name: build client
+        working-directory: client
+        run: npm run build
+
+      # server side build
+      
+      - name: install server deps
+        working-directory: server
+        run: npm ci
+
+      - name: build server
+        working-directory: server
+        run: npm run build
