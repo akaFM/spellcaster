@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Player, RoundRecapPayload } from '../../../shared/types/socket';
 import type { Wizard } from '../types/wizard';
 import wizardPurple from '../assets/spellcaster-wizards/wizard-purple.png';
@@ -68,8 +68,8 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
   const leftWizard = hostPlayer ?? players[0];
   const rightWizard = nonHostPlayer ?? players[1];
   
-  const [leftHop, setLeftHop] = useState(false);
-  const [rightHop, setRightHop] = useState(false);
+  const [leftHopProgress, setLeftHopProgress] = useState(0);
+  const [rightHopProgress, setRightHopProgress] = useState(0);
   const prevRoundNumberRef = useRef<number | null>(null);
 
   // Refs for wand tip positions
@@ -87,26 +87,9 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
   const leftWizardData = leftWizard ? getWizardForPlayer(leftWizard.wizardId) : null;
   const rightWizardData = rightWizard ? getWizardForPlayer(rightWizard.wizardId) : null;
 
-  // Detect round completion and trigger hop animation for winning player
-  useEffect(() => {
-    if (roundRecap && roundRecap.winningPlayerId && roundRecap.roundNumber !== prevRoundNumberRef.current) {
-      // The winning player should hop with a more dramatic bounce
-      if (roundRecap.winningPlayerId === leftWizard?.id) {
-        setLeftHop(true);
-        // Longer duration for smoother, more dramatic hop
-        setTimeout(() => setLeftHop(false), 500);
-      } else if (roundRecap.winningPlayerId === rightWizard?.id) {
-        setRightHop(true);
-        // Longer duration for smoother, more dramatic hop
-        setTimeout(() => setRightHop(false), 500);
-      }
-      
-      prevRoundNumberRef.current = roundRecap.roundNumber;
-    }
-  }, [roundRecap, leftWizard?.id, rightWizard?.id]);
 
   // Update wand tip positions
-  const updateWandPositions = () => {
+  const updateWandPositions = useCallback(() => {
     if (!containerRef.current) {
       setLeftWandTip(null);
       setRightWandTip(null);
@@ -142,7 +125,134 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
     } else {
       setRightWandTip(null);
     }
-  };
+  }, []);
+
+  const [displayBeamOffset, setDisplayBeamOffset] = useState(beamOffset);
+  const beamAnimationRef = useRef<number | null>(null);
+  const currentOffsetRef = useRef(beamOffset);
+
+  useEffect(() => {
+    currentOffsetRef.current = displayBeamOffset;
+  }, [displayBeamOffset]);
+
+  useEffect(() => {
+    if (beamAnimationRef.current) {
+      cancelAnimationFrame(beamAnimationRef.current);
+    }
+
+    const duration = 450;
+    const start = currentOffsetRef.current;
+    const delta = beamOffset - start;
+
+    if (Math.abs(delta) < 0.01) {
+      setDisplayBeamOffset(beamOffset);
+      currentOffsetRef.current = beamOffset;
+      return;
+    }
+
+    const startTime = performance.now();
+
+    const animate = (time: number) => {
+      const progress = Math.min((time - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      const nextValue = start + delta * eased;
+
+      setDisplayBeamOffset(nextValue);
+      currentOffsetRef.current = nextValue;
+
+      if (progress < 1) {
+        beamAnimationRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    beamAnimationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (beamAnimationRef.current) {
+        cancelAnimationFrame(beamAnimationRef.current);
+        beamAnimationRef.current = null;
+      }
+    };
+  }, [beamOffset]);
+
+  const leftHopAnimationRef = useRef<number | null>(null);
+  const rightHopAnimationRef = useRef<number | null>(null);
+
+  const runHopAnimation = useCallback((side: 'left' | 'right') => {
+    const duration = 600;
+    const startTime = performance.now();
+
+    const animate = (time: number) => {
+      const progress = Math.min((time - startTime) / duration, 1);
+      const hopValue = Math.sin(progress * Math.PI);
+
+      if (side === 'left') {
+        setLeftHopProgress(hopValue);
+      } else {
+        setRightHopProgress(hopValue);
+      }
+
+      if (progress < 1) {
+        const frame = requestAnimationFrame(animate);
+        if (side === 'left') {
+          leftHopAnimationRef.current = frame;
+        } else {
+          rightHopAnimationRef.current = frame;
+        }
+      } else {
+        if (side === 'left') {
+          setLeftHopProgress(0);
+          leftHopAnimationRef.current = null;
+        } else {
+          setRightHopProgress(0);
+          rightHopAnimationRef.current = null;
+        }
+      }
+    };
+
+    if (side === 'left' && leftHopAnimationRef.current) {
+      cancelAnimationFrame(leftHopAnimationRef.current);
+    }
+    if (side === 'right' && rightHopAnimationRef.current) {
+      cancelAnimationFrame(rightHopAnimationRef.current);
+    }
+
+    const frame = requestAnimationFrame(animate);
+    if (side === 'left') {
+      leftHopAnimationRef.current = frame;
+    } else {
+      rightHopAnimationRef.current = frame;
+    }
+  }, []);
+
+  // Detect round completion and trigger hop animation for winning player
+  useEffect(() => {
+    if (roundRecap && roundRecap.winningPlayerId && roundRecap.roundNumber !== prevRoundNumberRef.current) {
+      if (roundRecap.winningPlayerId === leftWizard?.id) {
+        runHopAnimation('left');
+      } else if (roundRecap.winningPlayerId === rightWizard?.id) {
+        runHopAnimation('right');
+      }
+      
+      prevRoundNumberRef.current = roundRecap.roundNumber;
+    }
+  }, [roundRecap, leftWizard?.id, rightWizard?.id, runHopAnimation]);
+
+  useEffect(() => {
+    return () => {
+      if (leftHopAnimationRef.current) {
+        cancelAnimationFrame(leftHopAnimationRef.current);
+      }
+      if (rightHopAnimationRef.current) {
+        cancelAnimationFrame(rightHopAnimationRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (leftHopProgress === 0 && rightHopProgress === 0) return;
+    updateWandPositions();
+  }, [leftHopProgress, rightHopProgress, updateWandPositions]);
 
   // Calculate beam endpoints - both beams extend the same distance toward the center
   // This ensures both beams are equal length and meet in the middle
@@ -159,7 +269,7 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
 
     // Normalize beamOffset from [-100, 100] to adjust where beams meet
     // 0 = center, positive = right wins, negative = left wins
-    const offsetPercent = beamOffset / 100; // -1 to 1
+    const offsetPercent = displayBeamOffset / 100; // -1 to 1
     const offsetDistance = (halfDistance * offsetPercent) * 0.3; // Scale down the offset for subtlety
 
     // Both beams extend the same distance toward the center, with slight offset based on beamOffset
@@ -237,10 +347,16 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
         observer.disconnect();
       }
     };
-  }, [leftWizard, rightWizard, leftWizardData, rightWizardData, leftHop, rightHop]);
+  }, [leftWizard, rightWizard, leftWizardData, rightWizardData, updateWandPositions]);
 
   // Calculate beam endpoints - both beams are equal length
   const beamEndpoints = calculateBeamEndpoints();
+  const collisionPoint = beamEndpoints
+    ? {
+        x: (beamEndpoints.leftEnd.x + beamEndpoints.rightEnd.x) / 2,
+        y: (beamEndpoints.leftEnd.y + beamEndpoints.rightEnd.y) / 2,
+      }
+    : null;
   
   // Determine if beams should be active (during duel, when both wizards are present and we have positions)
   const beamsActive = Boolean(
@@ -252,6 +368,14 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
     leftWizardData &&
     rightWizardData
   );
+
+  const leftHopOffset = -Math.sin(leftHopProgress * Math.PI) * 34;
+  const rightHopOffset = -Math.sin(rightHopProgress * Math.PI) * 34;
+  const leftHopScale = 1 + leftHopProgress * 0.05;
+  const rightHopScale = 1 + rightHopProgress * 0.05;
+
+  const leftColor = leftWizardData?.color ?? '#ffffff';
+  const rightColor = rightWizardData?.color ?? '#ffffff';
 
   return (
     <div 
@@ -265,8 +389,9 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
             <div
               className="relative"
               style={{ 
-                transform: leftHop ? 'translateY(-35px)' : 'translateY(0)',
-                transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transform: `translateY(${leftHopOffset}px) scale(${leftHopScale})`,
+                transition: leftHopProgress === 0 ? 'transform 0.25s ease-out' : undefined,
+                willChange: 'transform',
               }}
             >
               <div className="relative w-24 h-24">
@@ -305,8 +430,9 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
             <div
               className="relative"
               style={{ 
-                transform: rightHop ? 'translateY(-35px)' : 'translateY(0)',
-                transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transform: `translateY(${rightHopOffset}px) scale(${rightHopScale})`,
+                transition: rightHopProgress === 0 ? 'transform 0.25s ease-out' : undefined,
+                willChange: 'transform',
               }}
             >
               <div className="relative w-24 h-24">
@@ -367,6 +493,40 @@ export function WizardBeam({ players, beamOffset = 0, roundRecap, localPlayerId 
               glowSize={24}
               active={beamsActive}
             />
+            {collisionPoint && (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  left: collisionPoint.x,
+                  top: collisionPoint.y,
+                  transform: 'translate(-50%, -50%)',
+                  mixBlendMode: 'screen',
+                  zIndex: 40,
+                }}
+              >
+                <div className="relative w-20 h-20">
+                  <div
+                    className="absolute inset-0 rounded-full blur-[22px] opacity-70 animate-ping"
+                    style={{
+                      background: `radial-gradient(circle, rgba(255,255,255,0.85) 0%, ${leftColor} 40%, ${rightColor} 75%, rgba(255,255,255,0) 95%)`,
+                    }}
+                  />
+                  <div
+                    className="absolute inset-1 rounded-full blur-xl opacity-85 animate-pulse"
+                    style={{
+                      background: `radial-gradient(circle, rgba(255,255,255,0.9) 0%, ${leftColor} 30%, ${rightColor} 60%, transparent 85%)`,
+                      boxShadow: `0 0 20px ${leftColor}, 0 0 20px ${rightColor}`,
+                    }}
+                  />
+                  <div
+                    className="absolute inset-2 rounded-full border border-white/50 shadow-[0_0_18px_rgba(255,255,255,0.7)] animate-pulse"
+                    style={{
+                      background: 'radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.5) 55%, transparent 80%)',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
